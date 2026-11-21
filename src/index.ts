@@ -63,7 +63,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
 }
 async function finish(env:Env,s:Session,scene:Scene){
   await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
-  await send(env,s.chat_id,"إذا استمتعت بالقصة، شاركنا رأيك أو كلمة حلوة عن التجربة.");
+  await send(env,s.chat_id,"إذا استمتعت بالقصة، قيّم التجربة:",{inline_keyboard:[[{text:"⭐",callback_data:`rate:${s.session_id}:1`},{text:"⭐⭐",callback_data:`rate:${s.session_id}:2`},{text:"⭐⭐⭐",callback_data:`rate:${s.session_id}:3`},{text:"⭐⭐⭐⭐",callback_data:`rate:${s.session_id}:4`},{text:"⭐⭐⭐⭐⭐",callback_data:`rate:${s.session_id}:5`}]]});
 }
 async function startStory(env:Env,chatId:string,userId:string,storyId:string,mode:"private"|"group"){
   const story=await storyById(env.DB,storyId);if(!story){await send(env,chatId,"القصة غير متاحة.");return;}
@@ -96,6 +96,13 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     const storyId=data.slice(5),mode=q.message?.chat.type==="private"?"private":"group";
     if(mode==="group"&&!isAdmin(env,userId)){await send(env,chatId,"بدء القصص في المجموعة متاح للمشرفين فقط.");return;}
     await startStory(env,chatId,userId,storyId,mode);return;
+  }
+  if(data.startsWith("rate:")){
+    const [,sessionId,ratingText]=data.split(":"),rating=Number(ratingText);
+    const session=await env.DB.prepare("SELECT status FROM sessions WHERE session_id=?").bind(sessionId).first<{status:string}>();
+    if(!session||session.status!=="finished"||!Number.isInteger(rating)||rating<1||rating>5){await send(env,chatId,"تعذر حفظ التقييم.");return;}
+    await env.DB.prepare("INSERT INTO ratings(session_id,user_id,rating) VALUES(?,?,?) ON CONFLICT(session_id,user_id) DO UPDATE SET rating=excluded.rating,created_at=CURRENT_TIMESTAMP").bind(sessionId,userId,rating).run();
+    await send(env,chatId,"شكرًا لتقييمك. رأيك يساعدنا على تحسين فَصْل.");return;
   }
   if(data.startsWith("choose:")){
     const [,sessionId,indexText]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status='active'").bind(sessionId).first<Session>();
