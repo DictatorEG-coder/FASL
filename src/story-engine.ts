@@ -75,3 +75,26 @@ export function stateSummary(state: StoryState, loopTitles: Record<string, strin
     : "لا توجد أسئلة معلّقة";
   return `⏳ الوقت المتبقي: ${state.timeRemaining} دقيقة\n🤝 الثقة: ${trustLine}\n❓ أسئلة مفتوحة (${state.openLoops.length}): ${openLine}`;
 }
+
+export type ReviewClue = { id: string; title: string };
+
+export function buildStoryReview(
+  state: StoryState,
+  allClues: ReviewClue[],
+  collectedClueIds: string[],
+  loopTitles: Record<string, string> = {},
+): string {
+  const collected = new Set(collectedClueIds);
+  const uniqueClues = [...new Map(allClues.filter(x => x.id && x.title).map(x => [x.id, x])).values()];
+  const missed = uniqueClues.filter(clue => !collected.has(clue.id));
+  const missedLine = missed.length
+    ? missed.slice(0, 10).map(clue => clue.title).join("، ") + (missed.length > 10 ? `، و${missed.length - 10} أدلة أخرى` : "")
+    : "لم تترك أي دليل معروف دون جمعه.";
+  const resolvedLine = state.resolvedLoops.length
+    ? state.resolvedLoops.map(key => loopTitles[key] || key).join("، ")
+    : "لم يُحسم سؤال رئيسي مسجل.";
+  const openLine = state.openLoops.length
+    ? state.openLoops.map(key => loopTitles[key] || key).join("، ")
+    : "لا توجد أسئلة معلّقة.";
+  return `الأدلة التي لم تجمعها: ${missedLine}\\nالأسئلة التي حسمتها: ${resolvedLine}\\nالأسئلة التي بقيت مفتوحة: ${openLine}\\nالوقت المتبقي عند النهاية: ${state.timeRemaining} دقيقة`;
+}
