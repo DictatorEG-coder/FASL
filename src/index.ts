@@ -265,6 +265,7 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   if(!s)return;
   const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];if(!story||!scene)return;
   const available=await eligibleChoices(env,s.session_id,scene.choices||[]);
+  const pollChoices=poll.options.map(option=>scene.choices?.find(choice=>choice.text===option.text)||null);
   const max=Math.max(0,...poll.options.map(o=>o.voter_count));
   const winners=poll.options.map((o,i)=>({o,i})).filter(x=>x.o.voter_count===max&&max>0);
   if(winners.length===0){
@@ -273,7 +274,12 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
     return;
   }
   if(winners.length===1){
-    const selected=available[winners[0].i];
+    const selected=pollChoices[winners[0].i];
+    if(selected&&!available.includes(selected)){
+      await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+      await send(env,s.chat_id,"تغيّرت شروط أحد الخيارات أثناء التصويت. سنعرض القرار من جديد حتى لا يُعتمد اختيار لم يعد متاحًا.");
+      await showScene(env,s,story,s.scene_id);return;
+    }
     if(selected?.suspectId&&story.caseFile){
       const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(s.session_id).first<{n:number}>();
       const interrogations=await env.DB.prepare("SELECT COUNT(*) n FROM session_interrogations WHERE session_id=?").bind(s.session_id).first<{n:number}>();
@@ -295,10 +301,10 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
     await showScene(env,s,story,s.scene_id);return;
   }
   let next:string;
-  if(winners.length===1)next=scene.choices?.[winners[0].i]?.next||"";
+  if(winners.length===1)next=pollChoices[winners[0].i]?.next||"";
   else if(scene.tieNext){await send(env,s.chat_id,scene.tieText||"تعادل التصويت؛ تتداخل المسارات.");next=scene.tieNext;}
   else {
-    const distinct=[...new Set(winners.map(w=>available[w.i]?.next).filter(Boolean))] as string[];
+    const distinct=[...new Set(winners.map(w=>pollChoices[w.i]?.next).filter(Boolean))] as string[];
     next=distinct.length===1?distinct[0]:"";
   }
   if(!next&&winners.length>1){
@@ -308,7 +314,7 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   }
   await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
   if(!next){await send(env,s.chat_id,"تعذر تحديد المسار التالي. أوقفنا الجلسة لحماية تقدمكم.");await env.DB.prepare("UPDATE sessions SET status='finished' WHERE session_id=?").bind(s.session_id).run();return;}
-  if(winners.length===1) await grantChoiceEffects(env,s.session_id,available[winners[0].i]);
+  if(winners.length===1) await grantChoiceEffects(env,s.session_id,pollChoices[winners[0].i]!);
   await showScene(env,s,story,next);
 }
 async function handleUpdate(env:Env,u:TgUpdate){
