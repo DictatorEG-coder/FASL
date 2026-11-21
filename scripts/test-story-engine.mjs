@@ -43,6 +43,31 @@ const options = [
   { text: "avoid tunnel", excludes: ["tunnel-collapsed"] },
 ];
 assert.deepEqual(availableByState(options, state).map(x => x.text), ["show map", "avoid tunnel"]);
+const conditionalOptions = [
+  { text: "earned ending", conditions: { minTimeRemaining: 10, minTrust: { salma: 2 }, requiresResolvedLoops: ["who-called"] } },
+  { text: "missed clue ending", requires: ["hidden-note"] },
+  { text: "fallback ending" },
+  { text: "wrong trust ending", conditions: { minTrust: { samih: 0 } } },
+  { text: "wrong loop ending", conditions: { requiresResolvedLoops: ["red-light"] } },
+];
+assert.deepEqual(
+  availableByState(conditionalOptions, state).map(x => x.text),
+  ["fallback ending"],
+);
+const strongState = applyEffects(createStoryState(30), {
+  time: -5,
+  trust: { hala: 2 },
+  resolveLoops: ["passenger-memories"],
+  addFlags: ["mechanical-check"],
+});
+assert.deepEqual(
+  availableByState([
+    { text: "full truth", requires: ["mechanical-check"], conditions: { minTimeRemaining: 20, minTrust: { hala: 1 }, requiresResolvedLoops: ["passenger-memories"] } },
+    { text: "fallback" },
+  ], strongState).map(x => x.text),
+  ["full truth", "fallback"],
+);
+
 assert.match(stateSummary(state), /الوقت المتبقي: 0/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟", "red-light": "من أضاء المصباح؟" }), /هل وصل النداء؟/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟" }), /أسئلة مفتوحة \(2\)/);
