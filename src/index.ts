@@ -123,26 +123,27 @@ async function onMessage(env:Env,m:TgMessage){
   await recordUser(env,m);
   const chatId=String(m.chat.id),userId=String(m.from?.id||"");
   const text=(m.text||"").trim();
-  if(text.startsWith("/start")){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قصة أو /help للمساعدة.");return;}
-  if(text==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
-  if(text==="/stories"){await listStories(env,chatId);return;}
-  if(text==="/stop"){const s=await getSession(env.DB,chatId);if(s){await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
-  if(text.startsWith("/broadcast ")){
+  const command=(text.split(/\\s+/,1)[0]||"").split("@")[0];
+  if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قصة أو /help للمساعدة.");return;}
+  if(command==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
+  if(command==="/stories"){await listStories(env,chatId);return;}
+  if(command==="/stop"){const s=await getSession(env.DB,chatId);if(s){await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
+  if(command==="/broadcast"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
-    const body=text.slice(11).trim();if(!body){await send(env,chatId,"اكتب الرسالة بعد الأمر: /broadcast نص الرسالة");return;}
+    const body=text.slice(text.indexOf(" ")+1).trim();if(!body){await send(env,chatId,"اكتب الرسالة بعد الأمر: /broadcast نص الرسالة");return;}
     const targets=await env.DB.prepare("SELECT chat_id FROM chats").all<{chat_id:string}>();
     let ok=0,failed=0;
     for(const target of targets.results){try{await send(env,target.chat_id,escapeHtml(body));ok++;}catch{failed++;}}
     await send(env,chatId,`انتهت الإذاعة. وصلت إلى ${ok} محادثة، وفشلت ${failed}.`);return;
   }
-  if(text.startsWith("/story ")){
+  if(command==="/story"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
     const [,action,storyId]=text.split(/\\s+/,3);
     if(!["on","off"].includes(action)||!storyId){await send(env,chatId,"الاستخدام: /story on|off story-id");return;}
     const result=await env.DB.prepare("UPDATE stories SET active=? WHERE story_id=?").bind(action==="on"?1:0,storyId).run();
     await send(env,chatId,result.meta.changes?`تم ${action==="on"?"تفعيل":"إيقاف"} القصة.`:"لم أجد هذه القصة.");return;
   }
-  if(text==="/admin"){
+  if(command==="/admin"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
     const [u,c,a,r]=await Promise.all([env.DB.prepare("SELECT COUNT(*) n FROM users").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM chats").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM sessions WHERE status IN ('active','waiting_poll','polling')").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM ratings").first<{n:number}>()]);
     await send(env,chatId,`<b>لوحة فَصْل</b>\nالمستخدمون: ${u?.n||0}\nالمحادثات والمجموعات: ${c?.n||0}\nالجلسات الجارية: ${a?.n||0}\nالتقييمات: ${r?.n||0}\n\n/broadcast نص — إذاعة\n/story off story-id — إيقاف قصة\n/story on story-id — تفعيل قصة`);return;
