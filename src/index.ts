@@ -1,4 +1,5 @@
 import { STORIES, type Story, type Scene } from "./stories";
+import { createStoryState, applyEffects, stateSummary, type StoryState } from "./story-engine";
 
 interface Env {
   DB: D1Database;
@@ -17,6 +18,16 @@ const json = (v:unknown,status=200)=>new Response(JSON.stringify(v),{status,head
 const now = ()=>Math.floor(Date.now()/1000);
 const id = ()=>crypto.randomUUID();
 const parse = <T>(s:string)=>JSON.parse(s) as T;
+const stateKey = (sessionId:string)=>"story-state:"+sessionId;
+async function loadStoryState(db:D1Database,sessionId:string,timeLimit=90):Promise<StoryState>{
+  const row=await db.prepare("SELECT value FROM settings WHERE key=?").bind(stateKey(sessionId)).first<{value:string}>();
+  if(!row)return createStoryState(timeLimit);
+  try{const value=parse<StoryState>(row.value);if(value.version===1&&typeof value.timeRemaining==="number"&&Array.isArray(value.flags))return value;}catch(e){console.error("invalid story state",e);}
+  return createStoryState(timeLimit);
+}
+async function saveStoryState(db:D1Database,sessionId:string,state:StoryState){
+  await db.prepare("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(stateKey(sessionId),JSON.stringify(state)).run();
+}
 
 async function tg(env:Env,method:string,payload:Record<string,unknown>={}) {
   const r=await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
@@ -58,6 +69,7 @@ async function eligibleChoices(env:Env,sessionId:string,choices:NonNullable<Scen
 }
 async function grantChoiceEffects(env:Env,sessionId:string,choice:NonNullable<Scene["choices"]>[number]){
   for(const clue of choice.grants||[]) await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,clue.id,clue.title,clue.detail).run();
+  if(choice.effects){const state=await loadStoryState(env.DB,sessionId);await saveStoryState(env.DB,sessionId,applyEffects(state,choice.effects,"choice:"+choice.text));}
 }
 async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNullable<Scene["choices"]>) {
   const available=await eligibleChoices(env,sessionId,choices);
@@ -99,9 +111,16 @@ async function getSession(db:D1Database,chatId:string){return db.prepare("SELECT
 async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   const scene=story.scenes[sceneId]; if(!scene){await send(env,session.chat_id,"حدث خلل في مسار القصة. أوقفنا الجلسة لحماية تقدمك.");return;}
   if(scene.clue) await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(session.session_id,scene.clue.id,scene.clue.title,scene.clue.detail).run();
+  let state=await loadStoryState(env.DB,session.session_id,story.timeLimit||90);
+  if(scene.opens?.length||scene.resolves?.length){
+    state=applyEffects(state,{openLoops:scene.opens,resolveLoops:scene.resolves},"scene:"+sceneId);
+    await saveStoryState(env.DB,session.session_id,state);
+  }
+  const stateLine=(story.timeLimit!==undefined||scene.opens?.length||scene.resolves?.length||scene.choices?.some(c=>c.effects))
+    ? "\n\n<blockquote>"+escapeHtml(stateSummary(state))+"</blockquote>" : "";
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
   if(session.mode==="group"){
-    await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
+    await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
     if(story.caseFile) await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});
     if(scene.ending){await finish(env,session,scene);return;}
     await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
@@ -124,6 +143,7 @@ async function startStory(env:Env,chatId:string,userId:string,storyId:string,mod
   if(old){await closePollIfOpen(env,old);await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL WHERE session_id=?").bind(old.session_id).run();}
   const session:Session={session_id:id(),chat_id:chatId,user_id: userId,story_id:storyId,scene_id:story.start,status:"active",mode,poll_id:null,pending_poll_scene:null,poll_due_at:null};
   await env.DB.prepare("INSERT INTO sessions(session_id,chat_id,user_id,story_id,scene_id,status,mode) VALUES(?,?,?,?,?,'active',?)").bind(session.session_id,chatId,userId,storyId,story.start,mode).run();
+  await saveStoryState(env.DB,session.session_id,createStoryState(story.timeLimit||90));
   await showScene(env,session,story,story.start);
 }
 async function onMessage(env:Env,m:TgMessage){
