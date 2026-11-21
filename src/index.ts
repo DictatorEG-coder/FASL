@@ -236,7 +236,11 @@ async function publishDuePolls(env:Env){
     const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.pending_poll_scene||s.scene_id];
     if(!story||!scene||!scene.choices?.length)continue;
     const available=await eligibleChoices(env,s.session_id,scene.choices);
-    if(!available.length){await send(env,s.chat_id,"لا يوجد قرار متاح في هذا المشهد. أوقفنا الجلسة لحماية مسارها.");continue;}
+    if(!available.length){
+      await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+      await send(env,s.chat_id,"لم يتبقَّ قرار صالح في هذا المشهد. أوقفنا الجلسة بدل تركها معلّقة؛ يمكنكم بدء قصة جديدة عبر /stories.");
+      continue;
+    }
     try{
       for(const choice of available){
         if(choice.image){
@@ -257,6 +261,11 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   const available=await eligibleChoices(env,s.session_id,scene.choices||[]);
   const max=Math.max(0,...poll.options.map(o=>o.voter_count));
   const winners=poll.options.map((o,i)=>({o,i})).filter(x=>x.o.voter_count===max&&max>0);
+  if(winners.length===0){
+    await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='stopped',pending_poll_scene=NULL,poll_due_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+    await send(env,s.chat_id,"انتهى التصويت دون أصوات، لذلك لم نختر مسارًا بالنيابة عنكم. يمكنكم بدء القصة مجددًا عبر /stories.");
+    return;
+  }
   if(winners.length===1){
     const selected=available[winners[0].i];
     if(selected?.suspectId&&story.caseFile){
