@@ -160,7 +160,7 @@ export default {
     const claimed=await env.DB.prepare("INSERT OR IGNORE INTO processed_updates(update_id) VALUES(?)").bind(update.update_id).run();
     if(!claimed.meta.changes)return json({ok:true,deduplicated:true});
     try{await ensureSeed(env.DB);await handleUpdate(env,update);return json({ok:true});}
-    catch(e){console.error("update failed",e);return json({ok:false},200);}
+    catch(e){console.error("update failed",e);await env.DB.prepare("DELETE FROM processed_updates WHERE update_id=?").bind(update.update_id).run();return json({ok:false,error:"Temporary processing failure"},500);}
   },
   async scheduled(_event:ScheduledEvent,env:Env,ctx:ExecutionContext){
     ctx.waitUntil((async()=>{await ensureSeed(env.DB);await publishDuePolls(env);await fridayReminder(env);})());
