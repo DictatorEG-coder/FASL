@@ -1,3 +1,9 @@
+export type StoryMemory = {
+  characterId: string;
+  eventId: string;
+  impression: string;
+};
+
 export type StoryState = {
   version: 1;
   timeRemaining: number;
@@ -5,6 +11,7 @@ export type StoryState = {
   flags: string[];
   openLoops: string[];
   resolvedLoops: string[];
+  memories: StoryMemory[];
   history: string[];
 };
 
@@ -15,6 +22,7 @@ export type StateEffect = {
   removeFlags?: string[];
   openLoops?: string[];
   resolveLoops?: string[];
+  remember?: StoryMemory[];
 };
 
 export type StateCondition = {
@@ -24,6 +32,8 @@ export type StateCondition = {
   maxTrust?: Record<string, number>;
   requiresResolvedLoops?: string[];
   requiresOpenLoops?: string[];
+  requiresMemories?: string[];
+  excludesMemories?: string[];
 };
 
 export type ChoiceLike = {
@@ -40,10 +50,20 @@ export const createStoryState = (timeLimit = 90): StoryState => ({
   flags: [],
   openLoops: [],
   resolvedLoops: [],
+  memories: [],
   history: [],
 });
 
 const unique = (items: string[]) => [...new Set(items.filter(Boolean))];
+
+function mergeMemories(existing: StoryMemory[], incoming: StoryMemory[]): StoryMemory[] {
+  const byKey = new Map<string, StoryMemory>();
+  for (const memory of [...existing, ...incoming]) {
+    if (!memory?.characterId || !memory.eventId || !memory.impression) continue;
+    byKey.set(`${memory.characterId}:${memory.eventId}`, memory);
+  }
+  return [...byKey.values()].slice(-50);
+}
 
 export function applyEffects(state: StoryState, effect: StateEffect = {}, eventId?: string): StoryState {
   const trust = { ...state.trust };
@@ -61,6 +81,7 @@ export function applyEffects(state: StoryState, effect: StateEffect = {}, eventI
     flags: unique([...state.flags.filter(x => !(effect.removeFlags || []).includes(x)), ...(effect.addFlags || [])]),
     openLoops,
     resolvedLoops: resolved,
+    memories: mergeMemories(state.memories || [], effect.remember || []),
     history: eventId ? [...state.history, eventId].slice(-100) : state.history,
   };
   return next;
@@ -79,6 +100,9 @@ export function availableByState<T extends ChoiceLike>(choices: T[], state: Stor
     if (condition.maxTrust && Object.entries(condition.maxTrust).some(([person, value]) => (state.trust[person] || 0) > value)) return false;
     if (condition.requiresResolvedLoops && !condition.requiresResolvedLoops.every(key => state.resolvedLoops.includes(key))) return false;
     if (condition.requiresOpenLoops && !condition.requiresOpenLoops.every(key => state.openLoops.includes(key))) return false;
+    const memoryIds = new Set((state.memories || []).map(memory => memory.eventId));
+    if (condition.requiresMemories && !condition.requiresMemories.every(key => memoryIds.has(key))) return false;
+    if (condition.excludesMemories && condition.excludesMemories.some(key => memoryIds.has(key))) return false;
     return true;
   });
 }
