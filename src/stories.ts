@@ -1,4 +1,4 @@
-export type Choice = { text: string; next: string; image?: string; suspectId?: string };
+export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[] };
 export type Clue = { id: string; title: string; detail: string };
 export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue };
 export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
