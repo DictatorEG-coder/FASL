@@ -64,11 +64,14 @@ export function availableByState<T extends ChoiceLike>(choices: T[], state: Stor
   );
 }
 
-export function stateSummary(state: StoryState): string {
+export function stateSummary(state: StoryState, loopTitles: Record<string, string> = {}): string {
   const trustCount = Object.keys(state.trust).length;
   const labels: Record<string, string> = { hala: "هالة", samih: "سامح", salma: "سلمى" };
   const trustLine = trustCount
     ? Object.entries(state.trust).map(([name, value]) => `${labels[name] || name}: ${value > 0 ? "+" : ""}${value}`).join("، ")
     : "لم تتشكل علاقات كافية بعد";
-  return `⏳ الوقت المتبقي: ${state.timeRemaining} دقيقة\n🤝 الثقة: ${trustLine}\n❓ أسئلة مفتوحة: ${state.openLoops.length}`;
+  const openLine = state.openLoops.length
+    ? state.openLoops.map(key => loopTitles[key] || key).join("، ")
+    : "لا توجد أسئلة معلّقة";
+  return `⏳ الوقت المتبقي: ${state.timeRemaining} دقيقة\\n🤝 الثقة: ${trustLine}\\n❓ أسئلة مفتوحة (${state.openLoops.length}): ${openLine}`;
 }
