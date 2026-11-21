@@ -70,3 +70,11 @@ CREATE TABLE IF NOT EXISTS stats (
 CREATE INDEX IF NOT EXISTS idx_sessions_due ON sessions(status,poll_due_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_live_session_per_chat ON sessions(chat_id) WHERE status IN ('active','waiting_poll','polling');
 CREATE INDEX IF NOT EXISTS idx_users_seen ON users(last_seen_at);
+
+CREATE TABLE IF NOT EXISTS ratings (
+  session_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(session_id,user_id)
+);
