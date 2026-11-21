@@ -55,3 +55,7 @@ npm run dev
 - `src/stories.ts`: محتوى القصص ومساراتها.
 - `schema.sql`: جداول D1 والفهارس.
 - `wrangler.toml`: إعدادات Worker وD1 وCron.
+
+
+## Continuous integration
+GitHub Actions runs the TypeScript type-check on pushes and pull requests to `main`.
