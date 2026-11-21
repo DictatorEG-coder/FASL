@@ -96,5 +96,5 @@ export function buildStoryReview(
   const openLine = state.openLoops.length
     ? state.openLoops.map(key => loopTitles[key] || key).join("، ")
     : "لا توجد أسئلة معلّقة.";
-  return `الأدلة التي لم تجمعها: ${missedLine}\\nالأسئلة التي حسمتها: ${resolvedLine}\\nالأسئلة التي بقيت مفتوحة: ${openLine}\\nالوقت المتبقي عند النهاية: ${state.timeRemaining} دقيقة`;
+  return `الأدلة التي لم تجمعها: ${missedLine}\nالأسئلة التي حسمتها: ${resolvedLine}\nالأسئلة التي بقيت مفتوحة: ${openLine}\nالوقت المتبقي عند النهاية: ${state.timeRemaining} دقيقة`;
 }
