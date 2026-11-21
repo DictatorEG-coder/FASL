@@ -286,7 +286,9 @@ export const STORIES: Story[] = [
         { text: "عامل الصيانة", next: "l13", suspectId: "maintenance", image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=900" },
         { text: "الطبيب سامح", next: "l13", suspectId: "doctor", image: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=900" },
         { text: "ابنة الضحية", next: "l13", suspectId: "daughter", image: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=900" },
-        { text: "موظف الاستقبال", next: "l13", suspectId: "receptionist", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900" }
+        { text: "موظف الاستقبال", next: "l13", suspectId: "receptionist", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900" },
+        { text: "أعد فحص سجل الكاميرات", next: "l4", image: "https://images.unsplash.com/photo-1557597774-9d273605dfa9?w=900" },
+        { text: "افحص شرفة الخدمة مجددًا", next: "l5", image: "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?w=900" }
       ]
     },
     l13: {
