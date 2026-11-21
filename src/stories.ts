@@ -3167,7 +3167,8 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "اطلب توثيق الحقيقة كاملة مع أخطاء الجميع",
-            "conditions": {"requires":["mechanical-check"],"requiresResolvedLoops":["emergency-location"]},
+            "requires": ["mechanical-check"],
+            "conditions": {"requiresResolvedLoops":["emergency-location"]},
             "next": "e2",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900"
           },
@@ -3183,7 +3184,8 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "احتفظ بالرسم دون إضافة تفسير",
-            "conditions": {"requires":["map-consulted"],"requiresResolvedLoops":["old-road-warning"]},
+            "requires": ["map-consulted"],
+            "conditions": {"requiresResolvedLoops":["old-road-warning"]},
             "next": "e4",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900"
           },
