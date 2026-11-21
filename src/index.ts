@@ -98,8 +98,8 @@ async function onMessage(env:Env,m:TgMessage){
   }
   if(text==="/admin"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
-    const [u,c,a]=await Promise.all([env.DB.prepare("SELECT COUNT(*) n FROM users").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM chats").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM sessions WHERE status='active'").first<{n:number}>()]);
-    await send(env,chatId,`<b>لوحة فَصْل</b>\nالمستخدمون: ${u?.n||0}\nالمحادثات والمجموعات: ${c?.n||0}\nالجلسات النشطة: ${a?.n||0}\n\nإدارة القصص والإذاعة ستضاف عبر أوامر المالك في المرحلة التالية.`);return;
+    const [u,c,a,r]=await Promise.all([env.DB.prepare("SELECT COUNT(*) n FROM users").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM chats").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM sessions WHERE status IN ('active','waiting_poll','polling')").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM ratings").first<{n:number}>()]);
+    await send(env,chatId,`<b>لوحة فَصْل</b>\nالمستخدمون: ${u?.n||0}\nالمحادثات والمجموعات: ${c?.n||0}\nالجلسات الجارية: ${a?.n||0}\nالتقييمات: ${r?.n||0}\n\n/broadcast نص — إذاعة\n/story off story-id — إيقاف قصة\n/story on story-id — تفعيل قصة`);return;
   }
   if(text.startsWith("/"))return;
   const s=await getSession(env.DB,chatId);if(s&&s.mode==="private") await send(env,chatId,"اختر أحد الأزرار أسفل المشهد حتى يستمر السرد.");
