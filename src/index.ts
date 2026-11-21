@@ -27,6 +27,19 @@ async function tg(env:Env,method:string,payload:Record<string,unknown>={}) {
 async function send(env:Env,chat_id:string,text:string,reply_markup?:unknown) {
   return tg(env,"sendMessage",{chat_id,text,parse_mode:"HTML",disable_web_page_preview:true,...(reply_markup?{reply_markup}:{})});
 }
+async function sendPhoto(env:Env,chat_id:string,photo:string,caption:string,reply_markup?:unknown) {
+  return tg(env,"sendPhoto",{chat_id,photo,caption,parse_mode:"HTML",...(reply_markup?{reply_markup}:{})});
+}
+async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNullable<Scene["choices"]>) {
+  for(let i=0;i<choices.length;i++){
+    const choice=choices[i];
+    const markup={inline_keyboard:[[{text:choice.text,callback_data:`choose:${sessionId}:${i}`}]]};
+    if(choice.image){
+      try{await sendPhoto(env,chatId,choice.image,`<b>${escapeHtml(choice.text)}</b>`,markup);}
+      catch(e){console.error("choice image failed",e);await send(env,chatId,`<b>${escapeHtml(choice.text)}</b>`,markup);}
+    } else await send(env,chatId,`<b>${escapeHtml(choice.text)}</b>`,markup);
+  }
+}
 function escapeHtml(s:string){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]!));}
 function isAdmin(env:Env,userId:string){return (env.ADMIN_IDS||"").split(",").map(x=>x.trim()).filter(Boolean).includes(userId);}
 async function storyById(db:D1Database,storyId:string):Promise<Story|null>{
@@ -58,8 +71,8 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
     return;
   }
   if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene);return;}
-  const keyboard=(scene.choices||[]).map((c,i)=>[{text:c.text,callback_data:`choose:${session.session_id}:${i}`}]);
-  await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`,{inline_keyboard:keyboard});
+  await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
+  await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
 }
 async function finish(env:Env,s:Session,scene:Scene){
   await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
@@ -133,7 +146,13 @@ async function publishDuePolls(env:Env){
     const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.pending_poll_scene||s.scene_id];
     if(!story||!scene||!scene.choices?.length)continue;
     try{
-      const p=await tg(env,"sendPoll",{chat_id:s.chat_id,question:"ما القرار التالي؟",options:scene.choices.map(c=>c.text),is_anonymous:false,allows_multiple_answers:false,open_period:Number(env.POLL_DURATION_SECONDS||120)});
+      for(const choice of scene.choices){
+        if(choice.image){
+          try{await sendPhoto(env,s.chat_id,choice.image,`<b>${escapeHtml(choice.text)}</b>`);}
+          catch(e){console.error("group choice image failed",e);await send(env,s.chat_id,`<b>${escapeHtml(choice.text)}</b>`);}
+        } else await send(env,s.chat_id,`<b>${escapeHtml(choice.text)}</b>`);
+      }
+      const p=await tg(env,"sendPoll",{chat_id:s.chat_id,question:"اختر القرار الذي تريدونه:",options:scene.choices.map(c=>c.text),is_anonymous:false,allows_multiple_answers:false,open_period:Number(env.POLL_DURATION_SECONDS||120)});
       await env.DB.prepare("UPDATE sessions SET poll_id=?,poll_message_id=?,status='polling',updated_at=CURRENT_TIMESTAMP WHERE session_id=? AND status='waiting_poll'").bind(p.id,p.message_id,s.session_id).run();
     }catch(e){console.error("poll publish failed",e);await send(env,s.chat_id,"تعذر فتح التصويت. أعد المحاولة عبر /stop ثم /stories.");}
   }
