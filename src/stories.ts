@@ -2491,9 +2491,8 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "دع هالة تفحص التسرب وتقدّر الإصلاح",
-            "effects": {"remember":[{"characterId":"hala","eventId":"stood-with-hala","impression":"وثق بخبرتها وترك لها فحص الحافلة رغم ضغط الوقت."}]},
             "next": "b5",
-            "effects": { "time": -8, "trust": { "hala": 1 }, "addFlags": ["mechanical-check"] },
+            "effects": { "time": -8, "trust": { "hala": 1 }, "addFlags": ["mechanical-check"], "remember": [{"characterId":"hala","eventId":"stood-with-hala","impression":"وثق بخبرتها وترك لها فحص الحافلة رغم ضغط الوقت."}] },
             "image": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=900",
             "grants": [
               {
