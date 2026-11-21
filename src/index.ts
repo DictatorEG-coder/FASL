@@ -12,7 +12,7 @@ interface Env {
 }
 type TgMessage = { message_id:number; chat:{id:number;type:string;title?:string}; from?:{id:number;first_name?:string;username?:string}; text?:string };
 type TgUpdate = { update_id:number; message?:TgMessage; callback_query?:{id:string;from:{id:number;first_name?:string;username?:string};message?:TgMessage;data?:string}; poll?:{id:string;is_closed:boolean;options:{text:string;voter_count:number}[]}; my_chat_member?:unknown };
-type Session = {session_id:string;chat_id:string;user_id:string;story_id:string;scene_id:string;status:string;mode:"private"|"group";poll_id:string|null;pending_poll_scene:string|null;poll_due_at:number|null};
+type Session = {session_id:string;chat_id:string;user_id:string;story_id:string;scene_id:string;status:string;mode:"private"|"group";poll_id:string|null;poll_message_id?:number|null;pending_poll_scene:string|null;poll_due_at:number|null};
 const json = (v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 const now = ()=>Math.floor(Date.now()/1000);
 const id = ()=>crypto.randomUUID();
@@ -78,7 +78,7 @@ async function storyById(db:D1Database,storyId:string):Promise<Story|null>{
   return STORIES.find(s=>s.id===storyId)||null;
 }
 async function ensureSeed(db:D1Database){
-  for(const s of STORIES) await db.prepare("INSERT INTO stories(story_id,title,description,genre,estimated_minutes,content_json) VALUES(?,?,?,?,?,?) ON CONFLICT(story_id) DO UPDATE SET title=excluded.title,description=excluded.description,genre=excluded.genre,estimated_minutes=excluded.estimated_minutes,content_json=excluded.content_json").bind(s.id,s.title,s.description,s.genre,s.minutes,JSON.stringify(s)).run();
+  for(const s of STORIES) await db.prepare("INSERT INTO stories(story_id,title,description,genre,estimated_minutes,content_json) VALUES(?,?,?,?,?,?) ON CONFLICT(story_id) DO UPDATE SET title=excluded.title,description=excluded.description,genre=excluded.genre,estimated_minutes=excluded.estimated_minutes,content_json=excluded.content_json WHERE stories.title!=excluded.title OR stories.description!=excluded.description OR stories.genre!=excluded.genre OR stories.estimated_minutes!=excluded.estimated_minutes OR stories.content_json!=excluded.content_json").bind(s.id,s.title,s.description,s.genre,s.minutes,JSON.stringify(s)).run();
 }
 async function recordUser(env:Env,m:TgMessage){
   if(m.from) await env.DB.prepare("INSERT INTO users(telegram_id,first_name,username) VALUES(?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET first_name=excluded.first_name,username=excluded.username,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.from.id),m.from.first_name||"",m.from.username||null).run();
@@ -89,6 +89,11 @@ async function listStories(env:Env,chatId:string){
   const keyboard=rows.results.map(s=>[{text:`${s.title} · ${s.estimated_minutes} د`,callback_data:`play:${s.story_id}`}]);
   if(!keyboard.length){await send(env,chatId,"لا توجد قصص متاحة حاليًا.");return;}
   await send(env,chatId,"<b>مكتبة فَصْل</b>\nاختر قصة لبدء التجربة:",{inline_keyboard:keyboard});
+}
+async function closePollIfOpen(env:Env,s:Session){
+  if(s.mode!=="group"||!s.poll_id||!s.poll_message_id)return;
+  try{await tg(env,"stopPoll",{chat_id:s.chat_id,message_id:s.poll_message_id});}
+  catch(e){console.error("stop poll failed",e);}
 }
 async function getSession(db:D1Database,chatId:string){return db.prepare("SELECT * FROM sessions WHERE chat_id=? AND status IN ('active','waiting_poll','polling')").bind(chatId).first<Session>();}
 async function showScene(env:Env,session:Session,story:Story,sceneId:string){
@@ -114,7 +119,7 @@ async function finish(env:Env,s:Session,scene:Scene){
 async function startStory(env:Env,chatId:string,userId:string,storyId:string,mode:"private"|"group"){
   const story=await storyById(env.DB,storyId);if(!story){await send(env,chatId,"القصة غير متاحة.");return;}
   const old=await getSession(env.DB,chatId);
-  if(old) await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(old.session_id).run();
+  if(old){await closePollIfOpen(env,old);await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL WHERE session_id=?").bind(old.session_id).run();}
   const session:Session={session_id:id(),chat_id:chatId,user_id: userId,story_id:storyId,scene_id:story.start,status:"active",mode,poll_id:null,pending_poll_scene:null,poll_due_at:null};
   await env.DB.prepare("INSERT INTO sessions(session_id,chat_id,user_id,story_id,scene_id,status,mode) VALUES(?,?,?,?,?,'active',?)").bind(session.session_id,chatId,userId,storyId,story.start,mode).run();
   await showScene(env,session,story,story.start);
@@ -127,7 +132,7 @@ async function onMessage(env:Env,m:TgMessage){
   if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قصة أو /help للمساعدة.");return;}
   if(command==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
   if(command==="/stories"){await listStories(env,chatId);return;}
-  if(command==="/stop"){const s=await getSession(env.DB,chatId);if(s){await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
+  if(command==="/stop"){const s=await getSession(env.DB,chatId);if(s){await closePollIfOpen(env,s);await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
   if(command==="/broadcast"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
     const body=text.includes(" ")?text.slice(text.indexOf(" ")+1).trim():"";if(!body){await send(env,chatId,"اكتب الرسالة بعد الأمر: /broadcast نص الرسالة");return;}
