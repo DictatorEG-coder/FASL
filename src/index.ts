@@ -123,7 +123,7 @@ async function onMessage(env:Env,m:TgMessage){
   await recordUser(env,m);
   const chatId=String(m.chat.id),userId=String(m.from?.id||"");
   const text=(m.text||"").trim();
-  const command=(text.split(/\\s+/,1)[0]||"").split("@")[0];
+  const command=(text.split(/\s+/,1)[0]||"").split("@")[0];
   if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قصة أو /help للمساعدة.");return;}
   if(command==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
   if(command==="/stories"){await listStories(env,chatId);return;}
@@ -138,7 +138,7 @@ async function onMessage(env:Env,m:TgMessage){
   }
   if(command==="/story"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
-    const [,action,storyId]=text.split(/\\s+/,3);
+    const [,action,storyId]=text.split(/\s+/,3);
     if(!["on","off"].includes(action)||!storyId){await send(env,chatId,"الاستخدام: /story on|off story-id");return;}
     const result=await env.DB.prepare("UPDATE stories SET active=? WHERE story_id=?").bind(action==="on"?1:0,storyId).run();
     await send(env,chatId,result.meta.changes?`تم ${action==="on"?"تفعيل":"إيقاف"} القصة.`:"لم أجد هذه القصة.");return;
