@@ -199,6 +199,11 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
       await showScene(env,s,story,s.scene_id);return;
     }
   }
+  if(winners.length>1&&winners.some(w=>scene.choices?.[w.i]?.suspectId)){
+    await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+    await send(env,s.chat_id,"تعادل التصويت بين أكثر من اتهام. لن نخمن القاتل؛ راجعوا الأدلة ثم صوّتوا من جديد.");
+    await showScene(env,s,story,s.scene_id);return;
+  }
   let next:string;
   if(winners.length===1)next=scene.choices?.[winners[0].i]?.next||"";
   else if(scene.tieNext){await send(env,s.chat_id,scene.tieText||"تعادل التصويت؛ تتداخل المسارات.");next=scene.tieNext;}
