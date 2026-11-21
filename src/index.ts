@@ -181,6 +181,23 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];if(!story||!scene)return;
   const max=Math.max(0,...poll.options.map(o=>o.voter_count));
   const winners=poll.options.map((o,i)=>({o,i})).filter(x=>x.o.voter_count===max&&max>0);
+  if(winners.length===1){
+    const selected=scene.choices?.[winners[0].i];
+    if(selected?.suspectId&&story.caseFile){
+      const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(s.session_id).first<{n:number}>();
+      await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+      if((count?.n||0)<story.caseFile.minimumClues){
+        await send(env,s.chat_id,"لا تتسرعوا في الاتهام؛ لم تجمع المجموعة قرائن كافية بعد. سنعيد فتح ملف القضية.");
+        await showScene(env,s,story,s.scene_id);return;
+      }
+      if(selected.suspectId===story.caseFile.correctSuspectId){
+        await send(env,s.chat_id,"<b>أحسنتم! حلّت المجموعة القضية.</b>\\n\\n"+escapeHtml(story.caseFile.explanation)+"\\n\\n<b>انتهى التحقيق.</b>");
+        await finish(env,s,{text:"تم حل القضية.",ending:true});return;
+      }
+      await send(env,s.chat_id,"اتهام غير صحيح. أعيدوا مراجعة القرائن؛ ما زال هناك تفصيل لا يتفق مع روايتكم.");
+      await showScene(env,s,story,s.scene_id);return;
+    }
+  }
   let next:string;
   if(winners.length===1)next=scene.choices?.[winners[0].i]?.next||"";
   else if(scene.tieNext){await send(env,s.chat_id,scene.tieText||"تعادل التصويت؛ تتداخل المسارات.");next=scene.tieNext;}
