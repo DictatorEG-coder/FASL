@@ -65,6 +65,18 @@ for (const story of stories) {
       for (const [field, value] of [["minTimeRemaining", condition.minTimeRemaining], ["maxTimeRemaining", condition.maxTimeRemaining]]) {
         if (value !== undefined && (!Number.isFinite(value) || value < 0)) errors.push(`${story.id}/${sceneId}: invalid ${field}`);
       }
+      for (const memoryId of [...(condition.requiresMemories || []), ...(condition.excludesMemories || [])]) {
+        if (!story.memoryEvents || !story.memoryEvents[memoryId]) errors.push(`${story.id}/${sceneId}: condition references unknown memory "${memoryId}"`);
+      }
+      for (const memory of choice.effects?.remember || []) {
+        if (!memory.characterId || !memory.eventId || !memory.impression) errors.push(`${story.id}/${sceneId}: invalid character memory`);
+        else if (story.memoryEvents?.[memory.eventId] !== memory.characterId) errors.push(`${story.id}/${sceneId}: memory "${memory.eventId}" has no matching character definition`);
+      }
+      for (const reaction of scene.memoryReactions || []) {
+        for (const memoryId of reaction.requires || []) {
+          if (!story.memoryEvents || !story.memoryEvents[memoryId]) errors.push(`${story.id}/${sceneId}: reaction references unknown memory "${memoryId}"`);
+        }
+      }
       for (const loopId of [...(condition.requiresResolvedLoops || []), ...(condition.requiresOpenLoops || [])]) {
         if (!loopIds.has(loopId)) errors.push(`${story.id}/${sceneId}: condition references unknown loop "${loopId}"`);
       }
