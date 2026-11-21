@@ -17,10 +17,13 @@ state = applyEffects(state, {
   trust: { salma: 1, samih: -1 },
   addFlags: ["found-map", "heard-warning"],
   openLoops: ["who-called", "red-light"],
+  remember: [{ characterId: "hala", eventId: "trusted-hala", impression: "trusted her expertise" }],
 }, "choice:inspect");
 assert.equal(state.timeRemaining, 48);
 assert.equal(state.trust.salma, 1);
 assert.equal(state.trust.samih, -1);
+assert.equal(state.memories.length, 1);
+assert.equal(state.memories[0].eventId, "trusted-hala");
 assert.deepEqual(Array.from(state.flags).sort(), ["found-map", "heard-warning"]);
 assert.deepEqual(Array.from(state.openLoops).sort(), ["red-light", "who-called"]);
 
@@ -49,10 +52,12 @@ const conditionalOptions = [
   { text: "fallback ending" },
   { text: "wrong trust ending", conditions: { minTrust: { samih: 0 } } },
   { text: "wrong loop ending", conditions: { requiresResolvedLoops: ["red-light"] } },
+  { text: "remembered path", conditions: { requiresMemories: ["trusted-hala"] } },
+  { text: "forgotten path", conditions: { excludesMemories: ["trusted-hala"] } },
 ];
 assert.deepEqual(
   availableByState(conditionalOptions, state).map(x => x.text),
-  ["fallback ending"],
+  ["fallback ending", "remembered path"],
 );
 const strongState = applyEffects(createStoryState(30), {
   time: -5,
@@ -72,6 +77,9 @@ assert.match(stateSummary(state), /الوقت المتبقي: 0/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟", "red-light": "من أضاء المصباح؟" }), /هل وصل النداء؟/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟" }), /أسئلة مفتوحة \(2\)/);
 assert.equal(state.history.length, 2);
+const repeatedMemory = applyEffects(state, { remember: [{ characterId: "hala", eventId: "trusted-hala", impression: "updated impression" }] });
+assert.equal(repeatedMemory.memories.length, 1);
+assert.equal(repeatedMemory.memories[0].impression, "updated impression");
 const review = buildStoryReview(
   state,
   [{ id: "found-map", title: "خريطة الطريق" }, { id: "hidden-note", title: "الرسالة المخفية" }],
