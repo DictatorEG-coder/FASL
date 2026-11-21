@@ -47,7 +47,7 @@ async function listStories(env:Env,chatId:string){
   if(!keyboard.length){await send(env,chatId,"لا توجد قصص متاحة حاليًا.");return;}
   await send(env,chatId,"<b>مكتبة فَصْل</b>\nاختر قصة لبدء التجربة:",{inline_keyboard:keyboard});
 }
-async function getSession(db:D1Database,chatId:string){return db.prepare("SELECT * FROM sessions WHERE chat_id=? AND status IN ('active','waiting_poll')").bind(chatId).first<Session>();}
+async function getSession(db:D1Database,chatId:string){return db.prepare("SELECT * FROM sessions WHERE chat_id=? AND status IN ('active','waiting_poll','polling')").bind(chatId).first<Session>();}
 async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   const scene=story.scenes[sceneId]; if(!scene){await send(env,session.chat_id,"حدث خلل في مسار القصة. أوقفنا الجلسة لحماية تقدمك.");return;}
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
