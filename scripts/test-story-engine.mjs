@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(source, {
 const moduleBox = { exports: {} };
 vm.runInNewContext(compiled, { exports: moduleBox.exports, module: moduleBox });
 
-const { createStoryState, applyEffects, availableByState, stateSummary } = moduleBox.exports;
+const { createStoryState, applyEffects, availableByState, stateSummary, buildStoryReview } = moduleBox.exports;
 let state = createStoryState(60);
 state = applyEffects(state, {
   time: -12,
@@ -47,4 +47,15 @@ assert.match(stateSummary(state), /الوقت المتبقي: 0/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟", "red-light": "من أضاء المصباح؟" }), /هل وصل النداء؟/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟" }), /أسئلة مفتوحة \(2\)/);
 assert.equal(state.history.length, 2);
+const review = buildStoryReview(
+  state,
+  [{ id: "found-map", title: "خريطة الطريق" }, { id: "hidden-note", title: "الرسالة المخفية" }],
+  ["found-map"],
+  { "new-question": "هل وصل النداء؟", "red-light": "من أضاء المصباح؟", "who-called": "من اتصل؟" },
+);
+assert.match(review, /الرسالة المخفية/);
+assert.doesNotMatch(review, /خريطة الطريق/);
+assert.match(review, /من أضاء المصباح؟/);
+assert.match(review, /هل وصل النداء؟/);
+
 console.log("Story engine tests passed: time, trust, flags, open loops, and conditional choices.");
