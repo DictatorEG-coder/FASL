@@ -63,6 +63,7 @@ async function listStories(env:Env,chatId:string){
 async function getSession(db:D1Database,chatId:string){return db.prepare("SELECT * FROM sessions WHERE chat_id=? AND status IN ('active','waiting_poll','polling')").bind(chatId).first<Session>();}
 async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   const scene=story.scenes[sceneId]; if(!scene){await send(env,session.chat_id,"حدث خلل في مسار القصة. أوقفنا الجلسة لحماية تقدمك.");return;}
+  if(scene.clue) await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(session.session_id,scene.clue.id,scene.clue.title,scene.clue.detail).run();
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
   if(session.mode==="group"){
     await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
@@ -73,6 +74,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene);return;}
   await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
   await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
+  if(story.caseFile) await send(env,session.chat_id,"يمكنك مراجعة ما جمعته من قرائن في أي وقت:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`}]]});
 }
 async function finish(env:Env,s:Session,scene:Scene){
   await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
@@ -132,11 +134,26 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     await env.DB.prepare("INSERT INTO ratings(session_id,user_id,rating) VALUES(?,?,?) ON CONFLICT(session_id,user_id) DO UPDATE SET rating=excluded.rating,created_at=CURRENT_TIMESTAMP").bind(sessionId,userId,rating).run();
     await send(env,chatId,"شكرًا لتقييمك. رأيك يساعدنا على تحسين فَصْل.");return;
   }
+  if(data.startsWith("clues:")){
+    const sessionId=data.slice(6);
+    const s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
+    if(!s||s.user_id!==userId){await send(env,chatId,"دفتر الأدلة غير متاح لهذه الجلسة.");return;}
+    const rows=await env.DB.prepare("SELECT title,detail FROM session_clues WHERE session_id=? ORDER BY rowid").bind(sessionId).all<{title:string;detail:string}>();
+    if(!rows.results.length){await send(env,chatId,"لم تجمع أي دليل بعد. انتبه للتفاصيل الصغيرة.");return;}
+    await send(env,chatId,"<b>📁 دفتر الأدلة</b>\n\n"+rows.results.map((x,i)=>`${i+1}. <b>${escapeHtml(x.title)}</b>\n${escapeHtml(x.detail)}`).join("\n\n"));return;
+  }
   if(data.startsWith("choose:")){
     const [,sessionId,indexText]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status='active'").bind(sessionId).first<Session>();
     if(!s||s.user_id!==userId){await send(env,chatId,"هذا الاختيار لا يخص جلستك الحالية.");return;}
     const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id],choice=scene?.choices?.[Number(indexText)];
     if(!story||!scene||!choice){await send(env,chatId,"تعذر تنفيذ الاختيار.");return;}
+    if(choice.suspectId&&story.caseFile){
+      const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(sessionId).first<{n:number}>();
+      if((count?.n||0)<story.caseFile.minimumClues){await send(env,chatId,`لا تتسرع في الاتهام. لديك ${count?.n||0} قرائن فقط، وتحتاج إلى ${story.caseFile.minimumClues} على الأقل. راجع دفتر الأدلة.`);return;}
+      if(choice.suspectId!==story.caseFile.correctSuspectId){await send(env,chatId,"اتهام غير صحيح. هناك تفصيل صغير لا يتفق مع روايتك. راجع القرائن وحاول مجددًا.");return;}
+      await send(env,chatId,`<b>أحسنت! لقد حللت القضية.</b>\n\n${escapeHtml(story.caseFile.explanation)}\n\n<b>انتهى التحقيق.</b>`);
+      await finish(env,s,{text:"تم حل القضية.",ending:true});return;
+    }
     await showScene(env,s,story,choice.next);
   }
 }
