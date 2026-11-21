@@ -130,7 +130,7 @@ async function onMessage(env:Env,m:TgMessage){
   if(command==="/stop"){const s=await getSession(env.DB,chatId);if(s){await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
   if(command==="/broadcast"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
-    const body=text.slice(text.indexOf(" ")+1).trim();if(!body){await send(env,chatId,"اكتب الرسالة بعد الأمر: /broadcast نص الرسالة");return;}
+    const body=text.includes(" ")?text.slice(text.indexOf(" ")+1).trim():"";if(!body){await send(env,chatId,"اكتب الرسالة بعد الأمر: /broadcast نص الرسالة");return;}
     const targets=await env.DB.prepare("SELECT chat_id FROM chats").all<{chat_id:string}>();
     let ok=0,failed=0;
     for(const target of targets.results){try{await send(env,target.chat_id,escapeHtml(body));ok++;}catch{failed++;}}
