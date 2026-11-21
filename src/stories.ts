@@ -1,7 +1,9 @@
 export type Choice = { text: string; next: string; image?: string; suspectId?: string };
 export type Clue = { id: string; title: string; detail: string };
 export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue };
-export type Story = { id: string; title: string; description: string; genre: string; minutes: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; correctSuspectId: string; explanation: string } };
+export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
+export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
+export type Story = { id: string; title: string; description: string; genre: string; minutes: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[] } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
@@ -103,7 +105,28 @@ export const STORIES: Story[] = [
   genre: "تحقيق جنائي وألغاز",
   minutes: 18,
   start: "l1",
-  caseFile: { minimumClues: 3, correctSuspectId: "maintenance", explanation: "عامل الصيانة هو القاتل. استخدم بطاقة الخدمة للدخول عبر الممر غير المصوّر، وعبث بالساعة ليصنع توقيتًا زائفًا، ثم حاول توجيه الشبهة إلى صاحبة المعطف الأزرق. الخيط الأزرق وبقايا منظف الزجاج وسجل البطاقة تربط الأدلة به؛ أما الغرفة المغلقة فكانت خدعة اعتمدت على ممر الخدمة." },
+  caseFile: {
+    minimumClues: 3, minimumInterrogations: 3, correctSuspectId: "maintenance",
+    explanation: "عامل الصيانة هو القاتل. استخدم بطاقة الخدمة للدخول عبر الممر غير المصوّر، وعبث بالساعة ليصنع توقيتًا زائفًا، ثم حاول توجيه الشبهة إلى صاحبة المعطف الأزرق. سجل البطاقة وبقايا المنظف وتناقض أقواله تربط الأدلة به؛ أما الغرفة المغلقة فكانت خدعة اعتمدت على ممر الخدمة.",
+    suspects: [
+      { id:"maintenance", name:"ماهر — عامل الصيانة", opening:"يبدو هادئًا أكثر مما ينبغي. يقول إنه لم يقترب من الغرفة 17، وإنه كان يصلح لوحة الكهرباء طوال فترة الحادث.", questions:[
+        { prompt:"أين كنت عند 11:16؟", answer:"في الطابق السفلي. انقطعت الكهرباء لدقائق، فذهبت إلى لوحة التحكم. لم أصعد إلى الطابق السابع." },
+        { prompt:"لماذا تحمل حذاؤك أثر منظف الزجاج؟", answer:"نستخدمه لتنظيف الممرات المعدنية. هذا لا يعني أنني دخلت شرفة الغرفة.", requiresClueId:"glass-cleaner", revealClue:{id:"maintenance-alibi",title:"رواية ماهر عن مكانه",detail:"ادعى أنه بقي في الطابق السفلي وقت انقطاع الكاميرات، لكنه لم يقدم سجلًا يثبت ذلك."} }
+      ], contradiction:{clueId:"service-card",prompt:"سجل الصيانة يثبت استخدام بطاقتك في ممر الخدمة أثناء انقطاع الكاميرات. كيف تفسر ذلك؟",response:"يصمت ماهر، ثم يقول إن البطاقة ضاعت منه قبل يومين. لكنه سبق أن أكد أنه لم يفقدها قط. تناقض واضح، ويؤكد أنه أخفى دخوله إلى الممر.",revealClue:{id:"maintenance-lie",title:"تناقض ماهر بشأن بطاقة الخدمة",detail:"أنكر الاقتراب من الممر، ثم ادعى أن بطاقته ضاعت. سجل النظام يثبت استخدامها وقت الجريمة، ما يكشف كذبه."}}},
+      { id:"doctor", name:"الدكتور سامح — طبيب الضحية", opening:"يتحدث الطبيب بثقة، لكنه يتجنب النظر إلى كوب الماء. يعترف بأنه زار الضحية قبل الحادث بساعة.", questions:[
+        {prompt:"ما الدواء الذي أعطيته لنادر؟",answer:"جرعته المعتادة فقط. لم أغيّر الوصفة، ولم ألمس كوب الماء."},
+        {prompt:"هل كان نادر ينتظر شخصًا تلك الليلة؟",answer:"كان قلقًا من اجتماع يخص ملفات الشركة، لكنه لم يخبرني باسم الشخص.",requiresClueId:"hidden-note",revealClue:{id:"doctor-secret",title:"سر الطبيب",detail:"أكد الطبيب أن الضحية كان يخشى تسريب ملفات الشركة، لكنه ادعى أنه لا يعرف موعد اللقاء السري."}}
+      ], contradiction:{clueId:"hidden-note",prompt:"وجدنا موعد لقاء مخفيًا في الكوب. لماذا أخفيت أنك سمعت عن الاجتماع؟",response:"يعترف الطبيب أنه أخفى الأمر لحماية سمعة المريض، لكنه لم يكن حاضرًا وقت الوفاة. كذبه كان لحماية السر، لا لإخفاء القتل."}},
+      { id:"daughter", name:"ليلى — ابنة الضحية", opening:"تبدو ليلى غاضبة أكثر من كونها حزينة. تقول إنها غادرت الفندق قبل الحادث، ثم تعود وتعترف بأنها رجعت لأخذ وصفة من حقيبة أبيها.", questions:[
+        {prompt:"لماذا عدتِ إلى الطابق بعد مغادرتك؟",answer:"نسيت وصفة الدواء في حقيبته. خفت أن يرفض إعطائي إياها، فدخلت وأخذتها بسرعة."},
+        {prompt:"هل كنتِ ترتدين معطفًا أزرق؟",answer:"نعم، لكنه معطف قديم. رأيته معلقًا في الردهة بعد عودتي، ولم أدخل الغرفة.",requiresClueId:"clock-thread",revealClue:{id:"daughter-coat",title:"معطف ليلى الأزرق",detail:"الخيط الأزرق يشبه لون معطف ليلى، لكن فحص النسيج لا يطابق أليافه. الشبه كان فخًا."}}
+      ], contradiction:{clueId:"service-card",prompt:"سجل الدخول لا يظهر عودتك. كيف دخلتِ الفندق؟",response:"تعترف بأنها دخلت من الباب الجانبي حين كان موظف الاستقبال منشغلًا. أخفت ذلك لأنها خالفت تعليمات الأمن، لكنها لم تستخدم ممر الصيانة."}},
+      { id:"receptionist", name:"فؤاد — موظف الاستقبال", opening:"يتذكر تفاصيل كثيرة، لكنه يغيّر ترتيب الأوقات كلما سألته عن مفتاح الخدمة.", questions:[
+        {prompt:"من طلب منك عدم تسجيل زيارة؟",answer:"ضيف في الطابق السادس. لم أرغب في إثارة مشكلة مع الإدارة."},
+        {prompt:"هل رأيت ماهرًا قرب المصعد؟",answer:"رأيته يحمل صندوق أدوات قبل انقطاع التسجيل بقليل، لكنه قال إنه متجه إلى القبو.",requiresClueId:"service-card",revealClue:{id:"receptionist-sighting",title:"شهادة موظف الاستقبال",detail:"رأى فؤاد عامل الصيانة يحمل صندوق أدوات قبل انقطاع الكاميرات، خلافًا لماهر الذي قال إنه لم يغادر القبو."}}
+      ], contradiction:{clueId:"maintenance-alibi",prompt:"قلت إن المصعد تعطل سبع دقائق، لكن سجل الصيانة يضع ماهرًا في القبو. ماذا رأيت؟",response:"يتراجع فؤاد عن شهادته: المصعد لم يتعطل، بل فُتح يدويًا بمفتاح الخدمة. أخفى ذلك لأنه سمح بمرور غير مسجل."}}
+    ]
+  },
   scenes: {
     l1: {
       text: "وصلتَ إلى فندق السرو بعد منتصف الليل. في الغرفة 17 عُثر على رجل الأعمال نادر السالمي ميتًا، والباب مغلق من الداخل، والنافذة محكمة الإغلاق. لا أثر لكسر أو اقتحام. المحقق المسؤول يهمس: «كل الموجودين هنا يكذبون، لكن واحدًا فقط لا يعرف أنه ترك دليلًا». أمامك أربعة أشخاص، ولكل واحد منهم رواية مختلفة.",
