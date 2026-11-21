@@ -6,7 +6,7 @@ export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieTex
 export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
 export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
 export type CaseEnding = { id: string; title: string; requiredClues: string[]; requiredInterrogations: string[]; text: string };
-export type Story = { id: string; title: string; description: string; genre: string; minutes: number; timeLimit?: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
+export type Story = { id: string; title: string; description: string; genre: string; minutes: number; timeLimit?: number; loopTitles?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
@@ -2429,6 +2429,11 @@ export const STORIES: Story[] = [
     "genre": "نجاة وتشويق وغموض إنساني",
     "minutes": 12,
     "timeLimit": 55,
+    "loopTitles": {
+      "emergency-location": "أين يقع الطريق الذي أنتم فيه؟",
+      "passenger-memories": "لماذا تتعارض ذكريات الركاب؟",
+      "old-road-warning": "ما الخطر الذي يخفيه الطريق القديم؟"
+    },
     "start": "b1",
     "scenes": {
       "b1": {
@@ -2768,6 +2773,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b12": {
+        "resolves": ["passenger-memories"],
         "text": "يفتح محمود الصورة أخيرًا. يظهر فيها شابان أمام الحافلة: مراد ومحمود، وبينهما طفل لا يظهر وجهه بوضوح. على ظهر الصورة كتب مراد: «لو تأخرت، لا تجعلهم يخرجون قبل عدّ الجميع». يقول محمود إن أخاه كان يعمل متطوعًا في الإنقاذ، وإنه عاد إلى الحافلة القديمة لأنه سمع طفلًا يصرخ. منذ ذلك اليوم لم يتوقف محمود عن البحث، لكنه لم يخبر أسرته لأنه لم يملك دليلًا على أن مراد نجا.\n\nيشرح محمود أن مراد كان يترك علامات صغيرة في الأماكن التي يمر بها، حتى يعرف فريق الإنقاذ طريق العودة. في الصورة تظهر العلامة نفسها على حزامه. يطلب منك ألا تعده بشيء قبل العثور على دليل حي؛ لقد سمع وعودًا كثيرة خلال اثني عشر عامًا.",
         "choices": [
           {
@@ -2797,6 +2803,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b13": {
+        "resolves": ["emergency-location"],
         "text": "يحدد سامح موضع الجسر من خلال ثلاثة معالم: صخرة مشقوقة، عمود مائل، وبقايا لوحة زرقاء. محمود يرفض ترك الحافلة قبل أن يعرف إن كانت هناك فرصة للوصول إلى مراد. هالة تحذر من الاقتراب من المجرى؛ الأرض تبدو صلبة لكنها جوفاء في المنتصف. تلاحظ أن العلامة السابعة على العمود أحدث من الست الأخرى، وأنها محفورة بقطعة معدنية تشبه جزءًا من لوحة الحافلة.\n\nيقيس سامح المسافة من العلامة السابعة إلى حافة الجسر بخطواته، ثم يتوقف عند نقطة بعينها. يقول إن صوت الانهيار بدأ من هناك في الحادث القديم. هالة تلتقط صورة للمكان وتحدد موضعًا آمنًا للوقوف، حتى لا يتحول البحث عن شخص إلى حادث جديد.",
         "choices": [
           {
@@ -3080,6 +3087,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b23": {
+        "resolves": ["old-road-warning"],
         "text": "الممر الأعلى ضيق، لكن مراد يصفه بدقة. يثبت الفريق حزام نقل حوله ويبدأ التحرك ببطء. عند منعطف حاد، ينقطع أحد المصابيح ويهبط غبار من السقف. يطلب مراد التوقف، لا الإسراع؛ يعرف أن الجدار يتسع عند العلامة السابعة. يتراجع الفريق نصف متر، يغير زاوية النقالة، ثم يعبر. في الخارج، يسمع الجميع صوت موجة ماء تمر في المجرى السفلي. لو دخلتم من الطريق الأقصر، لما خرج أحد بسهولة.\n\nتسجل هالة اتجاه تدفق الماء ووقت مروره، وتلتقط صورة للدعامة بعد تثبيتها. قائد الفريق يشرح أن الطريق سيظل مغلقًا حتى فحص هندسي كامل. لا أحد يصف ما حدث بأنه انتصار على الصحراء؛ لقد نجحتم لأنكم احترمتم الخطر ولم تتعاملوا مع الشجاعة باعتبارها تجاهلًا له.",
         "choices": [
           {
