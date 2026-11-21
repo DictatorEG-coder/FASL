@@ -64,7 +64,8 @@ async function showInterrogationMenu(env:Env,s:Session,story:Story){
 }
 async function eligibleChoices(env:Env,sessionId:string,choices:NonNullable<Scene["choices"]>){
   const rows=await env.DB.prepare("SELECT clue_id FROM session_clues WHERE session_id=?").bind(sessionId).all<{clue_id:string}>();
-  const flags=new Set(rows.results.map(x=>x.clue_id));
+  const state=await loadStoryState(env.DB,sessionId);
+  const flags=new Set([...rows.results.map(x=>x.clue_id),...state.flags]);
   return choices.filter(c=>(!c.requires||c.requires.every(x=>flags.has(x)))&&(!c.excludes||c.excludes.every(x=>!flags.has(x))));
 }
 async function grantChoiceEffects(env:Env,sessionId:string,choice:NonNullable<Scene["choices"]>[number]){
