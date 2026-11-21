@@ -242,7 +242,11 @@ async function publishDuePolls(env:Env){
   const due=await env.DB.prepare("SELECT * FROM sessions WHERE status='waiting_poll' AND poll_due_at<=?").bind(now()).all<Session>();
   for(const s of due.results){
     const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.pending_poll_scene||s.scene_id];
-    if(!story||!scene||!scene.choices?.length)continue;
+    if(!story||!scene||!scene.choices?.length){
+      await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+      await send(env,s.chat_id,"تعذر استكمال التصويت بسبب خلل في مسار القصة. أوقفنا الجلسة دون فقدان بيانات أخرى.");
+      continue;
+    }
     const available=await eligibleChoices(env,s.session_id,scene.choices);
     if(!available.length){
       await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
@@ -265,7 +269,12 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   if(!poll.is_closed)return;
   const s=await env.DB.prepare("SELECT * FROM sessions WHERE poll_id=? AND status='polling'").bind(poll.id).first<Session>();
   if(!s)return;
-  const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];if(!story||!scene)return;
+  const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];
+  if(!story||!scene){
+    await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+    await send(env,s.chat_id,"تعذر العثور على المشهد المرتبط بالتصويت. أوقفنا الجلسة لحماية مسارها.");
+    return;
+  }
   const available=await eligibleChoices(env,s.session_id,scene.choices||[]);
   const pollChoices=poll.options.map(option=>scene.choices?.find(choice=>choice.text===option.text)||null);
   if(pollChoices.some(choice=>!choice)){
