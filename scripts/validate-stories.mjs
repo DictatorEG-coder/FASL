@@ -61,6 +61,18 @@ for (const story of stories) {
       for (const flag of [...(choice.requires || []), ...(choice.excludes || [])]) {
         if (typeof flag !== "string" || !flag.trim()) errors.push(`${story.id}/${sceneId}: invalid choice condition`);
       }
+      const condition = choice.conditions || {};
+      for (const [field, value] of [["minTimeRemaining", condition.minTimeRemaining], ["maxTimeRemaining", condition.maxTimeRemaining]]) {
+        if (value !== undefined && (!Number.isFinite(value) || value < 0)) errors.push(`${story.id}/${sceneId}: invalid ${field}`);
+      }
+      for (const loopId of [...(condition.requiresResolvedLoops || []), ...(condition.requiresOpenLoops || [])]) {
+        if (!loopIds.has(loopId)) errors.push(`${story.id}/${sceneId}: condition references unknown loop "${loopId}"`);
+      }
+      for (const trust of [condition.minTrust || {}, condition.maxTrust || {}]) {
+        for (const [person, value] of Object.entries(trust)) {
+          if (!person || !Number.isFinite(value) || value < -3 || value > 3) errors.push(`${story.id}/${sceneId}: invalid trust condition`);
+        }
+      }
     }
   }
 
