@@ -81,6 +81,21 @@ async function onMessage(env:Env,m:TgMessage){
   if(text==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
   if(text==="/stories"){await listStories(env,chatId);return;}
   if(text==="/stop"){const s=await getSession(env.DB,chatId);if(s){await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
+  if(text.startsWith("/broadcast ")){
+    if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
+    const body=text.slice(11).trim();if(!body){await send(env,chatId,"اكتب الرسالة بعد الأمر: /broadcast نص الرسالة");return;}
+    const targets=await env.DB.prepare("SELECT chat_id FROM chats").all<{chat_id:string}>();
+    let ok=0,failed=0;
+    for(const target of targets.results){try{await send(env,target.chat_id,escapeHtml(body));ok++;}catch{failed++;}}
+    await send(env,chatId,`انتهت الإذاعة. وصلت إلى ${ok} محادثة، وفشلت ${failed}.`);return;
+  }
+  if(text.startsWith("/story ")){
+    if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
+    const [,action,storyId]=text.split(/\\s+/,3);
+    if(!["on","off"].includes(action)||!storyId){await send(env,chatId,"الاستخدام: /story on|off story-id");return;}
+    const result=await env.DB.prepare("UPDATE stories SET active=? WHERE story_id=?").bind(action==="on"?1:0,storyId).run();
+    await send(env,chatId,result.meta.changes?`تم ${action==="on"?"تفعيل":"إيقاف"} القصة.`:"لم أجد هذه القصة.");return;
+  }
   if(text==="/admin"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
     const [u,c,a]=await Promise.all([env.DB.prepare("SELECT COUNT(*) n FROM users").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM chats").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM sessions WHERE status='active'").first<{n:number}>()]);
