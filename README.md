@@ -42,6 +42,8 @@ curl -X POST "https://api.telegram.org/bot< BOT_TOKEN >/setWebhook" \
 ```bash
 npm install
 npm run typecheck
+npm run validate:stories
+npm test
 npm run dev
 ```
 
