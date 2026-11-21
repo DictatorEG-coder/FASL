@@ -22,6 +22,7 @@ for (const story of stories) {
   storyIds.add(story.id);
 
   const scenes = story.scenes || {};
+  const loopIds = new Set(Object.keys(story.loopTitles || {}));
   if (!scenes[story.start]) {
     errors.push(`${story.id}: start scene "${story.start}" does not exist`);
     continue;
@@ -37,6 +38,9 @@ for (const story of stories) {
     if (!scene) {
       errors.push(`${story.id}: missing scene "${sceneId}"`);
       continue;
+    }
+    for (const loopId of [...(scene.opens || []), ...(scene.resolves || [])]) {
+      if (!loopIds.has(loopId)) errors.push(`${story.id}/${sceneId}: unknown story loop "${loopId}"`);
     }
     if (!scene.ending && (!Array.isArray(scene.choices) || scene.choices.length === 0)) {
       errors.push(`${story.id}: non-ending scene "${sceneId}" has no choices`);
@@ -58,6 +62,12 @@ for (const story of stories) {
         if (typeof flag !== "string" || !flag.trim()) errors.push(`${story.id}/${sceneId}: invalid choice condition`);
       }
     }
+  }
+
+  const openedLoops = new Set([...reachable].flatMap(id => scenes[id]?.opens || []));
+  const resolvedLoops = new Set([...reachable].flatMap(id => scenes[id]?.resolves || []));
+  for (const loopId of openedLoops) {
+    if (!resolvedLoops.has(loopId)) errors.push(`${story.id}: opened loop "${loopId}" has no reachable resolution`);
   }
 
   const endings = [...reachable].filter(id => scenes[id]?.ending);
