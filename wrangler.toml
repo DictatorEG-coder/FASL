@@ -12,7 +12,7 @@ FRIDAY_REMINDER_ENABLED = "true"
 [[d1_databases]]
 binding = "DB"
 database_name = "fasl-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "ec218547-c9e2-468c-a658-aa0a83518632"
 
 [triggers]
 crons = ["* * * * *"]
