@@ -117,17 +117,19 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
     state=applyEffects(state,{openLoops:scene.opens,resolveLoops:scene.resolves},"scene:"+sceneId);
     await saveStoryState(env.DB,session.session_id,state);
   }
+  const memoryLines=(scene.memoryReactions||[]).filter(reaction=>reaction.requires.every(eventId=>(state.memories||[]).some(memory=>memory.eventId===eventId))).map(reaction=>reaction.text);
+  const sceneText=[scene.text,...memoryLines].join("\n\n");
   const stateLine=(story.timeLimit!==undefined||scene.opens?.length||scene.resolves?.length||scene.choices?.some(c=>c.effects))
     ? "\n\n<blockquote>"+escapeHtml(stateSummary(state,story.loopTitles))+"</blockquote>" : "";
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
   if(session.mode==="group"){
-    await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
+    await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(sceneText)}${stateLine}`);
     if(story.caseFile) await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});
     if(scene.ending){await finish(env,session,scene,story);return;}
     await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
     return;
   }
-  if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene,story);return;}
+  if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(sceneText)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene,story);return;}
   await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
   await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
   if(story.caseFile){await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});}
