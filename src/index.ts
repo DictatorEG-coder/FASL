@@ -44,7 +44,7 @@ async function resolveCaseEnding(env:Env,s:Session,story:Story){
 }
 async function showCaseResolution(env:Env,s:Session,story:Story){
   const ending=await resolveCaseEnding(env,s,story);
-  await send(env,s.chat_id,`<b>أحسنتم! حلّت المجموعة القضية.</b>\\n\\n<b>${escapeHtml(ending.title)}</b>\\n${escapeHtml(ending.text)}\\n\\n<b>انتهى التحقيق.</b>`);
+  await send(env,s.chat_id,`<b>أحسنتم! حلّت المجموعة القضية.</b>\n\n<b>${escapeHtml(ending.title)}</b>\n${escapeHtml(ending.text)}\n\n<b>انتهى التحقيق.</b>`);
   await finish(env,s,{text:ending.title,ending:true});
 }
 async function showInterrogationMenu(env:Env,s:Session,story:Story){
