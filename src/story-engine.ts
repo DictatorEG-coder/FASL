@@ -17,9 +17,19 @@ export type StateEffect = {
   resolveLoops?: string[];
 };
 
+export type StateCondition = {
+  minTimeRemaining?: number;
+  maxTimeRemaining?: number;
+  minTrust?: Record<string, number>;
+  maxTrust?: Record<string, number>;
+  requiresResolvedLoops?: string[];
+  requiresOpenLoops?: string[];
+};
+
 export type ChoiceLike = {
   requires?: string[];
   excludes?: string[];
+  conditions?: StateCondition;
   effects?: StateEffect;
 };
 
@@ -58,10 +68,19 @@ export function applyEffects(state: StoryState, effect: StateEffect = {}, eventI
 
 export function availableByState<T extends ChoiceLike>(choices: T[], state: StoryState): T[] {
   const flags = new Set(state.flags);
-  return choices.filter(choice =>
-    (!choice.requires || choice.requires.every(flag => flags.has(flag))) &&
-    (!choice.excludes || choice.excludes.every(flag => !flags.has(flag)))
-  );
+  return choices.filter(choice => {
+    if (choice.requires && !choice.requires.every(flag => flags.has(flag))) return false;
+    if (choice.excludes && choice.excludes.some(flag => flags.has(flag))) return false;
+    const condition = choice.conditions;
+    if (!condition) return true;
+    if (condition.minTimeRemaining !== undefined && state.timeRemaining < condition.minTimeRemaining) return false;
+    if (condition.maxTimeRemaining !== undefined && state.timeRemaining > condition.maxTimeRemaining) return false;
+    if (condition.minTrust && Object.entries(condition.minTrust).some(([person, value]) => (state.trust[person] || 0) < value)) return false;
+    if (condition.maxTrust && Object.entries(condition.maxTrust).some(([person, value]) => (state.trust[person] || 0) > value)) return false;
+    if (condition.requiresResolvedLoops && !condition.requiresResolvedLoops.every(key => state.resolvedLoops.includes(key))) return false;
+    if (condition.requiresOpenLoops && !condition.requiresOpenLoops.every(key => state.openLoops.includes(key))) return false;
+    return true;
+  });
 }
 
 export function stateSummary(state: StoryState, loopTitles: Record<string, string> = {}): string {
