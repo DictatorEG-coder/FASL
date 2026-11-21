@@ -1,5 +1,5 @@
 import { STORIES, type Story, type Scene } from "./stories";
-import { createStoryState, applyEffects, stateSummary, type StoryState } from "./story-engine";
+import { createStoryState, applyEffects, stateSummary, buildStoryReview, type StoryState } from "./story-engine";
 
 interface Env {
   DB: D1Database;
@@ -56,7 +56,7 @@ async function resolveCaseEnding(env:Env,s:Session,story:Story){
 async function showCaseResolution(env:Env,s:Session,story:Story){
   const ending=await resolveCaseEnding(env,s,story);
   await send(env,s.chat_id,`<b>أحسنتم! حلّت المجموعة القضية.</b>\n\n<b>${escapeHtml(ending.title)}</b>\n${escapeHtml(ending.text)}\n\n<b>انتهى التحقيق.</b>`);
-  await finish(env,s,{text:ending.title,ending:true});
+  await finish(env,s,{text:ending.title,ending:true},story);
 }
 async function showInterrogationMenu(env:Env,s:Session,story:Story){
   const suspects=story.caseFile?.suspects||[];if(!suspects.length)return;
@@ -123,7 +123,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   if(session.mode==="group"){
     await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
     if(story.caseFile) await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});
-    if(scene.ending){await finish(env,session,scene);return;}
+    if(scene.ending){await finish(env,session,scene,story);return;}
     await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
     return;
   }
@@ -132,8 +132,21 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
   if(story.caseFile){await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});}
 }
-async function finish(env:Env,s:Session,scene:Scene){
+async function sendStoryReview(env:Env,s:Session,story:Story){
+  const [state,rows]=await Promise.all([
+    loadStoryState(env.DB,s.session_id,story.timeLimit||90),
+    env.DB.prepare("SELECT clue_id FROM session_clues WHERE session_id=?").bind(s.session_id).all<{clue_id:string}>()
+  ]);
+  const allClues=Object.values(story.scenes).flatMap(scene=>[
+    ...(scene.clue?[scene.clue]:[]),
+    ...(scene.choices||[]).flatMap(choice=>choice.grants||[])
+  ]);
+  const review=buildStoryReview(state,allClues,rows.results.map(row=>row.clue_id),story.loopTitles);
+  await send(env,s.chat_id,"<b>ماذا فاتك؟</b>\\n\\n"+escapeHtml(review));
+}
+async function finish(env:Env,s:Session,scene:Scene,story:Story){
   await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+  await sendStoryReview(env,s,story);
   await send(env,s.chat_id,"إذا استمتعت بالقصة، قيّم التجربة:",{inline_keyboard:[[{text:"⭐",callback_data:`rate:${s.session_id}:1`},{text:"⭐⭐",callback_data:`rate:${s.session_id}:2`},{text:"⭐⭐⭐",callback_data:`rate:${s.session_id}:3`},{text:"⭐⭐⭐⭐",callback_data:`rate:${s.session_id}:4`},{text:"⭐⭐⭐⭐⭐",callback_data:`rate:${s.session_id}:5`}]]});
 }
 async function startStory(env:Env,chatId:string,userId:string,storyId:string,mode:"private"|"group"){
