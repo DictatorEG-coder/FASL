@@ -73,5 +73,5 @@ export function stateSummary(state: StoryState, loopTitles: Record<string, strin
   const openLine = state.openLoops.length
     ? state.openLoops.map(key => loopTitles[key] || key).join("، ")
     : "لا توجد أسئلة معلّقة";
-  return `⏳ الوقت المتبقي: ${state.timeRemaining} دقيقة\\n🤝 الثقة: ${trustLine}\\n❓ أسئلة مفتوحة (${state.openLoops.length}): ${openLine}`;
+  return `⏳ الوقت المتبقي: ${state.timeRemaining} دقيقة\n🤝 الثقة: ${trustLine}\n❓ أسئلة مفتوحة (${state.openLoops.length}): ${openLine}`;
 }
