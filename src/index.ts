@@ -118,7 +118,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
     await saveStoryState(env.DB,session.session_id,state);
   }
   const stateLine=(story.timeLimit!==undefined||scene.opens?.length||scene.resolves?.length||scene.choices?.some(c=>c.effects))
-    ? "\n\n<blockquote>"+escapeHtml(stateSummary(state))+"</blockquote>" : "";
+    ? "\n\n<blockquote>"+escapeHtml(stateSummary(state,story.loopTitles))+"</blockquote>" : "";
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
   if(session.mode==="group"){
     await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
