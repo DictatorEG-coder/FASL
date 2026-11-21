@@ -266,6 +266,11 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];if(!story||!scene)return;
   const available=await eligibleChoices(env,s.session_id,scene.choices||[]);
   const pollChoices=poll.options.map(option=>scene.choices?.find(choice=>choice.text===option.text)||null);
+  if(pollChoices.some(choice=>!choice)){
+    await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+    await send(env,s.chat_id,"تغيرت خيارات هذا المشهد منذ فتح التصويت. سنعرض المشهد مجددًا حتى تصوّتوا على الخيارات الحالية.");
+    await showScene(env,s,story,s.scene_id);return;
+  }
   const max=Math.max(0,...poll.options.map(o=>o.voter_count));
   const winners=poll.options.map((o,i)=>({o,i})).filter(x=>x.o.voter_count===max&&max>0);
   if(winners.length===0){
