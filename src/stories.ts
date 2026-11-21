@@ -2428,6 +2428,7 @@ export const STORIES: Story[] = [
     "description": "رحلة ليلية تنحرف عن خرائطها، وسبعة ركاب يحملون أجزاءً من حادث لم يُغلق ملفه. هل تستطيعون إنقاذ العالق قبل أن ينهار الطريق مرة أخرى؟",
     "genre": "نجاة وتشويق وغموض إنساني",
     "minutes": 12,
+    "timeLimit": 55,
     "start": "b1",
     "scenes": {
       "b1": {
@@ -2436,6 +2437,7 @@ export const STORIES: Story[] = [
           {
             "text": "افحص الحافلة والمؤن قبل أي تحرك",
             "next": "b2",
+            "effects": { "time": -4, "trust": { "hala": 1 } },
             "image": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=900",
             "grants": [
               {
@@ -2448,6 +2450,7 @@ export const STORIES: Story[] = [
           {
             "text": "حاول الاتصال بالطوارئ وتثبيت موقعكم",
             "next": "b3",
+            "effects": { "time": -7, "trust": { "samih": -1 }, "openLoops": ["emergency-location"] },
             "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900",
             "grants": [
               {
@@ -2460,6 +2463,7 @@ export const STORIES: Story[] = [
           {
             "text": "اطلب من كل راكب أن يروي ما يتذكره",
             "next": "b4",
+            "effects": { "time": -5, "trust": { "salma": 1 }, "openLoops": ["passenger-memories"] },
             "image": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900",
             "grants": [
               {
@@ -2477,6 +2481,7 @@ export const STORIES: Story[] = [
           {
             "text": "دع هالة تفحص التسرب وتقدّر الإصلاح",
             "next": "b5",
+            "effects": { "time": -8, "trust": { "hala": 1 }, "addFlags": ["mechanical-check"] },
             "image": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=900",
             "grants": [
               {
@@ -2489,6 +2494,7 @@ export const STORIES: Story[] = [
           {
             "text": "افتح الخريطة وابحث عن طريق بديل",
             "next": "b6",
+            "effects": { "time": -3, "addFlags": ["map-consulted"], "openLoops": ["old-road-warning"] },
             "image": "https://images.unsplash.com/photo-1524666041070-9a8762b0b6d5?w=900",
             "grants": [
               {
