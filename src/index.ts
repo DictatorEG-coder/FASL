@@ -32,7 +32,7 @@ async function sendPhoto(env:Env,chat_id:string,photo:string,caption:string,repl
 }
 async function showInterrogationMenu(env:Env,s:Session,story:Story){
   const suspects=story.caseFile?.suspects||[];if(!suspects.length)return;
-  await send(env,s.chat_id,"<b>🕵️ غرفة الاستجواب</b>\\nاختر شخصًا لمواجهته. يمكنك العودة إلى هنا بعد جمع أدلة جديدة.",{inline_keyboard:suspects.map(x=>[{text:x.name,callback_data:`suspect:${s.session_id}:${x.id}`}])});
+  await send(env,s.chat_id,"<b>🕵️ غرفة الاستجواب</b>\nاختر شخصًا لمواجهته. يمكنك العودة إلى هنا بعد جمع أدلة جديدة.",{inline_keyboard:suspects.map(x=>[{text:x.name,callback_data:`suspect:${s.session_id}:${x.id}`}])});
 }
 async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNullable<Scene["choices"]>) {
   for(let i=0;i<choices.length;i++){
@@ -153,7 +153,7 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     const buttons=suspect.questions.map((q,i)=>[{text:q.prompt,callback_data:`ask:${sessionId}:${suspectId}:${i}`}]);
     if(clues.has(suspect.contradiction.clueId))buttons.push([{text:"⚖️ واجهه بالدليل",callback_data:`confront:${sessionId}:${suspectId}`}]);
     buttons.push([{text:"↩️ قائمة المشتبه بهم",callback_data:`interrogate:${sessionId}`}]);
-    await send(env,chatId,`<b>${escapeHtml(suspect.name)}</b>\\n${escapeHtml(suspect.opening)}`,{inline_keyboard:buttons});return;
+    await send(env,chatId,`<b>${escapeHtml(suspect.name)}</b>\n${escapeHtml(suspect.opening)}`,{inline_keyboard:buttons});return;
   }
   if(data.startsWith("ask:")){
     const [,sessionId,suspectId,indexText]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
@@ -164,7 +164,7 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     const seen=await env.DB.prepare("SELECT 1 ok FROM session_interrogations WHERE session_id=? AND question_key=?").bind(sessionId,key).first();
     if(!seen)await env.DB.prepare("INSERT OR IGNORE INTO session_interrogations(session_id,suspect_id,question_key) VALUES(?,?,?)").bind(sessionId,suspectId,key).run();
     if(q.revealClue)await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,q.revealClue.id,q.revealClue.title,q.revealClue.detail).run();
-    await send(env,chatId,`<b>سؤالك:</b> ${escapeHtml(q.prompt)}\\n\\n<b>إجابة ${escapeHtml(suspect.name)}:</b> ${escapeHtml(q.answer)}`,{inline_keyboard:[[{text:"اسأل سؤالًا آخر",callback_data:`suspect:${sessionId}:${suspectId}`}],[{text:"عودة للمشتبه بهم",callback_data:`interrogate:${sessionId}`}]]});return;
+    await send(env,chatId,`<b>سؤالك:</b> ${escapeHtml(q.prompt)}\n\n<b>إجابة ${escapeHtml(suspect.name)}:</b> ${escapeHtml(q.answer)}`,{inline_keyboard:[[{text:"اسأل سؤالًا آخر",callback_data:`suspect:${sessionId}:${suspectId}`}],[{text:"عودة للمشتبه بهم",callback_data:`interrogate:${sessionId}`}]]});return;
   }
   if(data.startsWith("confront:")){
     const [,sessionId,suspectId]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
@@ -174,7 +174,7 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     if(!has){await send(env,chatId,"لا تملك الدليل اللازم لهذه المواجهة بعد.");return;}
     await env.DB.prepare("INSERT OR IGNORE INTO session_interrogations(session_id,suspect_id,question_key) VALUES(?,?,?)").bind(sessionId,suspectId,`confront:${suspectId}`).run();
     if(suspect.contradiction.revealClue){const clue=suspect.contradiction.revealClue;await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,clue.id,clue.title,clue.detail).run();}
-    await send(env,chatId,`<b>واجهته بالدليل:</b> ${escapeHtml(suspect.contradiction.prompt)}\\n\\n<b>ردّه:</b> ${escapeHtml(suspect.contradiction.response)}`,{inline_keyboard:[[{text:"استجواب شخص آخر",callback_data:`interrogate:${sessionId}`}]]});return;
+    await send(env,chatId,`<b>واجهته بالدليل:</b> ${escapeHtml(suspect.contradiction.prompt)}\n\n<b>ردّه:</b> ${escapeHtml(suspect.contradiction.response)}`,{inline_keyboard:[[{text:"استجواب شخص آخر",callback_data:`interrogate:${sessionId}`}]]});return;
   }
   if(data.startsWith("clues:")){
     const sessionId=data.slice(6);
@@ -235,7 +235,7 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
         await showScene(env,s,story,s.scene_id);return;
       }
       if(selected.suspectId===story.caseFile.correctSuspectId){
-        await send(env,s.chat_id,"<b>أحسنتم! حلّت المجموعة القضية.</b>\\n\\n"+escapeHtml(story.caseFile.explanation)+"\\n\\n<b>انتهى التحقيق.</b>");
+        await send(env,s.chat_id,"<b>أحسنتم! حلّت المجموعة القضية.</b>\n\n"+escapeHtml(story.caseFile.explanation)+"\n\n<b>انتهى التحقيق.</b>");
         await finish(env,s,{text:"تم حل القضية.",ending:true});return;
       }
       await send(env,s.chat_id,"اتهام غير صحيح. أعيدوا مراجعة القرائن؛ ما زال هناك تفصيل لا يتفق مع روايتكم.");
