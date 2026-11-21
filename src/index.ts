@@ -130,7 +130,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
     return;
   }
   if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(sceneText)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene,story);return;}
-  await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
+  await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(sceneText)}${stateLine}`);
   await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
   if(story.caseFile){await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});}
 }
