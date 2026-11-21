@@ -30,6 +30,10 @@ async function send(env:Env,chat_id:string,text:string,reply_markup?:unknown) {
 async function sendPhoto(env:Env,chat_id:string,photo:string,caption:string,reply_markup?:unknown) {
   return tg(env,"sendPhoto",{chat_id,photo,caption,parse_mode:"HTML",...(reply_markup?{reply_markup}:{})});
 }
+async function showInterrogationMenu(env:Env,s:Session,story:Story){
+  const suspects=story.caseFile?.suspects||[];if(!suspects.length)return;
+  await send(env,s.chat_id,"<b>🕵️ غرفة الاستجواب</b>\\nاختر شخصًا لمواجهته. يمكنك العودة إلى هنا بعد جمع أدلة جديدة.",{inline_keyboard:suspects.map(x=>[{text:x.name,callback_data:`suspect:${s.session_id}:${x.id}`}])});
+}
 async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNullable<Scene["choices"]>) {
   for(let i=0;i<choices.length;i++){
     const choice=choices[i];
@@ -67,7 +71,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
   if(session.mode==="group"){
     await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
-    if(story.caseFile) await send(env,session.chat_id,"يمكنكم مراجعة القرائن التي جمعتها المجموعة:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`}]]});
+    if(story.caseFile) await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});
     if(scene.ending){await finish(env,session,scene);return;}
     await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
     return;
@@ -75,7 +79,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene);return;}
   await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
   await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
-  if(story.caseFile) await send(env,session.chat_id,"يمكنك مراجعة ما جمعته من قرائن في أي وقت:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`}]]});
+  if(story.caseFile){await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});}
 }
 async function finish(env:Env,s:Session,scene:Scene){
   await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
@@ -135,6 +139,43 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     await env.DB.prepare("INSERT INTO ratings(session_id,user_id,rating) VALUES(?,?,?) ON CONFLICT(session_id,user_id) DO UPDATE SET rating=excluded.rating,created_at=CURRENT_TIMESTAMP").bind(sessionId,userId,rating).run();
     await send(env,chatId,"شكرًا لتقييمك. رأيك يساعدنا على تحسين فَصْل.");return;
   }
+  if(data.startsWith("interrogate:")){
+    const sessionId=data.slice(12),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
+    if(!s||(s.mode==="private"&&s.user_id!==userId)){await send(env,chatId,"غرفة الاستجواب غير متاحة لهذه الجلسة.");return;}
+    const story=await storyById(env.DB,s.story_id);if(story?.caseFile)await showInterrogationMenu(env,s,story);return;
+  }
+  if(data.startsWith("suspect:")){
+    const [,sessionId,suspectId]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
+    if(!s||(s.mode==="private"&&s.user_id!==userId)){await send(env,chatId,"هذا الاستجواب لا يخص جلستك.");return;}
+    const story=await storyById(env.DB,s.story_id),suspect=story?.caseFile?.suspects.find(x=>x.id===suspectId);if(!story||!suspect)return;
+    const rows=await env.DB.prepare("SELECT clue_id FROM session_clues WHERE session_id=?").bind(sessionId).all<{clue_id:string}>();
+    const clues=new Set(rows.results.map(x=>x.clue_id));
+    const buttons=suspect.questions.map((q,i)=>[{text:q.prompt,callback_data:`ask:${sessionId}:${suspectId}:${i}`}]);
+    if(clues.has(suspect.contradiction.clueId))buttons.push([{text:"⚖️ واجهه بالدليل",callback_data:`confront:${sessionId}:${suspectId}`}]);
+    buttons.push([{text:"↩️ قائمة المشتبه بهم",callback_data:`interrogate:${sessionId}`}]);
+    await send(env,chatId,`<b>${escapeHtml(suspect.name)}</b>\\n${escapeHtml(suspect.opening)}`,{inline_keyboard:buttons});return;
+  }
+  if(data.startsWith("ask:")){
+    const [,sessionId,suspectId,indexText]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
+    if(!s||(s.mode==="private"&&s.user_id!==userId)){await send(env,chatId,"هذا الاستجواب لا يخص جلستك.");return;}
+    const story=await storyById(env.DB,s.story_id),suspect=story?.caseFile?.suspects.find(x=>x.id===suspectId),q=suspect?.questions[Number(indexText)];if(!story||!suspect||!q)return;
+    if(q.requiresClueId){const has=await env.DB.prepare("SELECT 1 ok FROM session_clues WHERE session_id=? AND clue_id=?").bind(sessionId,q.requiresClueId).first();if(!has){await send(env,chatId,"هذه المواجهة تحتاج إلى قرينة لم تجمعها بعد.");return;}}
+    const key=`q:${suspectId}:${indexText}`;
+    const seen=await env.DB.prepare("SELECT 1 ok FROM session_interrogations WHERE session_id=? AND question_key=?").bind(sessionId,key).first();
+    if(!seen)await env.DB.prepare("INSERT OR IGNORE INTO session_interrogations(session_id,suspect_id,question_key) VALUES(?,?,?)").bind(sessionId,suspectId,key).run();
+    if(q.revealClue)await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,q.revealClue.id,q.revealClue.title,q.revealClue.detail).run();
+    await send(env,chatId,`<b>سؤالك:</b> ${escapeHtml(q.prompt)}\\n\\n<b>إجابة ${escapeHtml(suspect.name)}:</b> ${escapeHtml(q.answer)}`,{inline_keyboard:[[{text:"اسأل سؤالًا آخر",callback_data:`suspect:${sessionId}:${suspectId}`}],[{text:"عودة للمشتبه بهم",callback_data:`interrogate:${sessionId}`}]]});return;
+  }
+  if(data.startsWith("confront:")){
+    const [,sessionId,suspectId]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
+    if(!s||(s.mode==="private"&&s.user_id!==userId)){await send(env,chatId,"هذه المواجهة لا تخص جلستك.");return;}
+    const story=await storyById(env.DB,s.story_id),suspect=story?.caseFile?.suspects.find(x=>x.id===suspectId);if(!story||!suspect)return;
+    const has=await env.DB.prepare("SELECT 1 ok FROM session_clues WHERE session_id=? AND clue_id=?").bind(sessionId,suspect.contradiction.clueId).first();
+    if(!has){await send(env,chatId,"لا تملك الدليل اللازم لهذه المواجهة بعد.");return;}
+    await env.DB.prepare("INSERT OR IGNORE INTO session_interrogations(session_id,suspect_id,question_key) VALUES(?,?,?)").bind(sessionId,suspectId,`confront:${suspectId}`).run();
+    if(suspect.contradiction.revealClue){const clue=suspect.contradiction.revealClue;await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,clue.id,clue.title,clue.detail).run();}
+    await send(env,chatId,`<b>واجهته بالدليل:</b> ${escapeHtml(suspect.contradiction.prompt)}\\n\\n<b>ردّه:</b> ${escapeHtml(suspect.contradiction.response)}`,{inline_keyboard:[[{text:"استجواب شخص آخر",callback_data:`interrogate:${sessionId}`}]]});return;
+  }
   if(data.startsWith("clues:")){
     const sessionId=data.slice(6);
     const s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
@@ -150,7 +191,8 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
     if(!story||!scene||!choice){await send(env,chatId,"تعذر تنفيذ الاختيار.");return;}
     if(choice.suspectId&&story.caseFile){
       const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(sessionId).first<{n:number}>();
-      if((count?.n||0)<story.caseFile.minimumClues){await send(env,chatId,`لا تتسرع في الاتهام. لديك ${count?.n||0} قرائن فقط، وتحتاج إلى ${story.caseFile.minimumClues} على الأقل. راجع دفتر الأدلة.`);return;}
+      const interrogations=await env.DB.prepare("SELECT COUNT(*) n FROM session_interrogations WHERE session_id=?").bind(sessionId).first<{n:number}>();
+      if((count?.n||0)<story.caseFile.minimumClues||(interrogations?.n||0)<story.caseFile.minimumInterrogations){await send(env,chatId,`لا تتسرع في الاتهام. تحتاج إلى ${story.caseFile.minimumClues} قرائن و${story.caseFile.minimumInterrogations} استجوابات على الأقل. لديك الآن ${count?.n||0} قرائن و${interrogations?.n||0} استجوابات.`);return;}
       if(choice.suspectId!==story.caseFile.correctSuspectId){await send(env,chatId,"اتهام غير صحيح. هناك تفصيل صغير لا يتفق مع روايتك. راجع القرائن وحاول مجددًا.");return;}
       await send(env,chatId,`<b>أحسنت! لقد حللت القضية.</b>\n\n${escapeHtml(story.caseFile.explanation)}\n\n<b>انتهى التحقيق.</b>`);
       await finish(env,s,{text:"تم حل القضية.",ending:true});return;
@@ -186,9 +228,10 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
     const selected=scene.choices?.[winners[0].i];
     if(selected?.suspectId&&story.caseFile){
       const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(s.session_id).first<{n:number}>();
+      const interrogations=await env.DB.prepare("SELECT COUNT(*) n FROM session_interrogations WHERE session_id=?").bind(s.session_id).first<{n:number}>();
       await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
-      if((count?.n||0)<story.caseFile.minimumClues){
-        await send(env,s.chat_id,"لا تتسرعوا في الاتهام؛ لم تجمع المجموعة قرائن كافية بعد. سنعيد فتح ملف القضية.");
+      if((count?.n||0)<story.caseFile.minimumClues||(interrogations?.n||0)<story.caseFile.minimumInterrogations){
+        await send(env,s.chat_id,"لا تتسرعوا في الاتهام؛ اجمعوا أدلة إضافية واستجوبوا المشتبه بهم قبل التصويت.");
         await showScene(env,s,story,s.scene_id);return;
       }
       if(selected.suspectId===story.caseFile.correctSuspectId){
