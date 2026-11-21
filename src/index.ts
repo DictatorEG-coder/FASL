@@ -127,7 +127,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
     await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
     return;
   }
-  if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene);return;}
+  if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene,story);return;}
   await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}${stateLine}`);
   await showChoices(env,session.chat_id,session.session_id,scene.choices||[]);
   if(story.caseFile){await send(env,session.chat_id,"أدوات التحقيق:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`},{text:"🕵️ استجواب المشتبه بهم",callback_data:`interrogate:${session.session_id}`}]]});}
@@ -266,7 +266,7 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
       if(choice.suspectId!==story.caseFile.correctSuspectId){await send(env,chatId,"اتهام غير صحيح. هناك تفصيل صغير لا يتفق مع روايتك. راجع القرائن وحاول مجددًا.");return;}
       const ending=await resolveCaseEnding(env,s,story);
       await send(env,chatId,`<b>أحسنت! لقد حللت القضية.</b>\n\n<b>${escapeHtml(ending.title)}</b>\n${escapeHtml(ending.text)}\n\n<b>انتهى التحقيق.</b>`);
-      await finish(env,s,{text:ending.title,ending:true});return;
+      await finish(env,s,{text:ending.title,ending:true},story);return;
     }
     await grantChoiceEffects(env,sessionId,choice);
     await showScene(env,s,story,choice.next);
