@@ -1,10 +1,12 @@
-export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[] };
+import type { StateEffect } from "./story-engine";
+export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[]; effects?: StateEffect };
+
 export type Clue = { id: string; title: string; detail: string };
-export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue };
+export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue; opens?: string[]; resolves?: string[] };
 export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
 export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
 export type CaseEnding = { id: string; title: string; requiredClues: string[]; requiredInterrogations: string[]; text: string };
-export type Story = { id: string; title: string; description: string; genre: string; minutes: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
+export type Story = { id: string; title: string; description: string; genre: string; minutes: number; timeLimit?: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
