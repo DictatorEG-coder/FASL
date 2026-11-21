@@ -1,5 +1,5 @@
 import { STORIES, type Story, type Scene } from "./stories";
-import { createStoryState, applyEffects, stateSummary, buildStoryReview, type StoryState } from "./story-engine";
+import { createStoryState, applyEffects, stateSummary, buildStoryReview, availableByState, type StoryState } from "./story-engine";
 
 interface Env {
   DB: D1Database;
@@ -65,8 +65,8 @@ async function showInterrogationMenu(env:Env,s:Session,story:Story){
 async function eligibleChoices(env:Env,sessionId:string,choices:NonNullable<Scene["choices"]>){
   const rows=await env.DB.prepare("SELECT clue_id FROM session_clues WHERE session_id=?").bind(sessionId).all<{clue_id:string}>();
   const state=await loadStoryState(env.DB,sessionId);
-  const flags=new Set([...rows.results.map(x=>x.clue_id),...state.flags]);
-  return choices.filter(c=>(!c.requires||c.requires.every(x=>flags.has(x)))&&(!c.excludes||c.excludes.every(x=>!flags.has(x))));
+  const flags=[...new Set([...rows.results.map(x=>x.clue_id),...state.flags])];
+  return availableByState(choices,{...state,flags});
 }
 async function grantChoiceEffects(env:Env,sessionId:string,choice:NonNullable<Scene["choices"]>[number]){
   for(const clue of choice.grants||[]) await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,clue.id,clue.title,clue.detail).run();
