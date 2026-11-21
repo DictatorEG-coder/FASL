@@ -2,11 +2,11 @@ import type { StateCondition, StateEffect } from "./story-engine";
 export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[]; effects?: StateEffect; conditions?: StateCondition };
 
 export type Clue = { id: string; title: string; detail: string };
-export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue; opens?: string[]; resolves?: string[] };
+export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue; opens?: string[]; resolves?: string[]; memoryReactions?: { requires: string[]; text: string }[] };
 export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
 export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
 export type CaseEnding = { id: string; title: string; requiredClues: string[]; requiredInterrogations: string[]; text: string };
-export type Story = { id: string; title: string; description: string; genre: string; minutes: number; timeLimit?: number; loopTitles?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
+export type Story = { id: string; title: string; description: string; genre: string; minutes: number; timeLimit?: number; loopTitles?: Record<string, string>; memoryEvents?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
@@ -2434,6 +2434,12 @@ export const STORIES: Story[] = [
       "passenger-memories": "لماذا تتعارض ذكريات الركاب؟",
       "old-road-warning": "ما الخطر الذي يخفيه الطريق القديم؟"
     },
+    "memoryEvents": {
+      "stood-with-hala": "hala",
+      "challenged-samih": "samih",
+      "protected-younis": "salma",
+      "heard-mahmoud": "mahmoud"
+    },
     "start": "b1",
     "scenes": {
       "b1": {
@@ -2485,6 +2491,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "دع هالة تفحص التسرب وتقدّر الإصلاح",
+            "effects": {"remember":[{"characterId":"hala","eventId":"stood-with-hala","impression":"وثق بخبرتها وترك لها فحص الحافلة رغم ضغط الوقت."}]},
             "next": "b5",
             "effects": { "time": -8, "trust": { "hala": 1 }, "addFlags": ["mechanical-check"] },
             "image": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=900",
@@ -2528,6 +2535,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "واجه سامح بسبب رد فعله",
+            "effects": {"remember":[{"characterId":"samih","eventId":"challenged-samih","impression":"واجه إنكاره مبكرًا ولم يسمح له بتجاوز السؤال."}]},
             "next": "b7",
             "image": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900",
             "grants": [
@@ -2545,6 +2553,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "اسأل يونس عن الحافلة الثانية",
+            "effects": {"remember":[{"characterId":"salma","eventId":"protected-younis","impression":"استمع إلى يونس دون تحويل خوفه إلى استجواب."}]},
             "next": "b8",
             "image": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900",
             "grants": [
@@ -2557,6 +2566,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "اطلب من محمود إظهار الصورة",
+            "effects": {"remember":[{"characterId":"mahmoud","eventId":"heard-mahmoud","impression":"منح محمود فرصة ليكشف ما يخفيه بدل تجاهل صمته."}]},
             "next": "b7",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900",
             "grants": [
@@ -2687,6 +2697,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b9": {
+        "memoryReactions": [{"requires":["challenged-samih"],"text":"ينظر سامح إليك قبل أن يجيب، ثم يقول: «واجهتني من البداية، وكان عندك حق ألا تكتفي بإنكاري. سأخبركم بما أعرفه هذه المرة»."}],
         "text": "يعترف سامح أن الشركة أعادت استخدام الحافلة بعد إصلاحها، وأنه احتفظ بنسخة من سجل الرحلة القديمة. كان يظن أن مراد مات، لكنه تلقى قبل شهر رسالة بلا توقيع فيها صورة للمصباح الأحمر قرب الجسر. لم يبلغ الشرطة؛ خاف أن يُتهم بالتقصير في التحقيق القديم. يخرج ورقة مطوية عليها رقم محطة الصيانة، ويقول إن مراد كان آخر من اتصل بها ليلة الحادث. «لو كان حيًا، فالمحطة هي أقرب مكان يقدر يرسل منه إشارة».\n\nتراجع الورقة وتجد أن رقم محطة الصيانة كُتب بقلم مختلف عن بقية السجل. سامح يعترف أنه لم يرسل الرسالة بنفسه، لكنه احتفظ بها لأنه خشي أن تكون محاولة ابتزاز. محمود يسأله لماذا لم يبلغ الشرطة، فيجيبه بأنه لم يعد يعرف كيف يفرق بين الخوف والحذر.",
         "choices": [
           {
@@ -2774,6 +2785,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b12": {
+        "memoryReactions": [{"requires":["heard-mahmoud"],"text":"يلتفت محمود إليك وقد خفّ تصلب يده حول الحقيبة: «أنت الوحيد الذي طلب أن يسمعني قبل أن يحكم. سأريك ما أخفيته»."},{"requires":["protected-younis"],"text":"تقول سلمى لك بصوت منخفض: «شكرًا لأنك لم تضغط على يونس. سأساعدك في فهم ما يتذكره، لكن دون أن نخيفه»."}],
         "text": "يفتح محمود الصورة أخيرًا. يظهر فيها شابان أمام الحافلة: مراد ومحمود، وبينهما طفل لا يظهر وجهه بوضوح. على ظهر الصورة كتب مراد: «لو تأخرت، لا تجعلهم يخرجون قبل عدّ الجميع». يقول محمود إن أخاه كان يعمل متطوعًا في الإنقاذ، وإنه عاد إلى الحافلة القديمة لأنه سمع طفلًا يصرخ. منذ ذلك اليوم لم يتوقف محمود عن البحث، لكنه لم يخبر أسرته لأنه لم يملك دليلًا على أن مراد نجا.\n\nيشرح محمود أن مراد كان يترك علامات صغيرة في الأماكن التي يمر بها، حتى يعرف فريق الإنقاذ طريق العودة. في الصورة تظهر العلامة نفسها على حزامه. يطلب منك ألا تعده بشيء قبل العثور على دليل حي؛ لقد سمع وعودًا كثيرة خلال اثني عشر عامًا.",
         "choices": [
           {
@@ -3059,6 +3071,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b22": {
+        "memoryReactions": [{"requires":["stood-with-hala"],"text":"تراجع هالة الدعامة ثم تقول لك: «منحتني ثقتك عند أول فحص، ولن أترك العمل ناقصًا الآن. سأراجع التثبيت مرة أخيرة قبل نقل مراد»."}],
         "text": "تثبت هالة وسامح الدعامة من الخارج وفق تعليمات قائد الفريق. لا يسمح القائد لأي راكب غير مدرب بالنزول. تمر دقائق ثقيلة، ثم يظهر مراد على نقالة ضيقة. يرفع يده لمحمود، لكن محمود لا يقترب إلا بعد أن يؤكد المسعف استقرار حالته. يونس يسأل إن كان الجميع خرجوا. هذه المرة يعدّهم سامح بصوت مسموع: هالة، محمود، يونس، سلمى، نادر، منال، أنت، ثم نفسه. سبعة ركاب وسائق. لا أحد ناقص.\n\nعندما يصل مراد إلى الخارج، يرفض المسعف السماح لأحد بنقله أو احتضانه قبل الفحص الأولي. يطلب منه أن يجيب عن اسمه وتاريخ اليوم ومكان الألم. محمود يظل بجانبه دون أن يلمسه، ثم يضع الصورة القديمة على النقالة كي يراها مراد حين يفتح عينيه.",
         "choices": [
           {
