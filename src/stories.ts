@@ -3,7 +3,8 @@ export type Clue = { id: string; title: string; detail: string };
 export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue };
 export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
 export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
-export type Story = { id: string; title: string; description: string; genre: string; minutes: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[] } };
+export type CaseEnding = { id: string; title: string; requiredClues: string[]; requiredInterrogations: string[]; text: string };
+export type Story = { id: string; title: string; description: string; genre: string; minutes: number; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
@@ -108,6 +109,11 @@ export const STORIES: Story[] = [
   caseFile: {
     minimumClues: 3, minimumInterrogations: 3, correctSuspectId: "maintenance",
     explanation: "عامل الصيانة هو القاتل. استخدم بطاقة الخدمة للدخول عبر الممر غير المصوّر، وعبث بالساعة ليصنع توقيتًا زائفًا، ثم حاول توجيه الشبهة إلى صاحبة المعطف الأزرق. سجل البطاقة وبقايا المنظف وتناقض أقواله تربط الأدلة به؛ أما الغرفة المغلقة فكانت خدعة اعتمدت على ممر الخدمة.",
+    endings: [
+      { id:"complete", title:"النهاية الكاملة — ملف بلا ثغرات", requiredClues:["service-card","glass-cleaner","maintenance-shoes","maintenance-lie"], requiredInterrogations:["confront:maintenance","q:receptionist:1"], text:"لم تكتفِ بتحديد القاتل؛ أغلقت كل ثغرة في روايته. سجل البطاقة يثبت مروره، وأثر المنظف يربطه بشرفة الخدمة، وحذاؤه يكشف طريقه، ثم أسقط تناقضه إنكاره. يعثر الفريق على العبوة وملفات الشركة المسروقة داخل صندوق الأدوات. يُدان ماهر، وتُبرّأ ليلى والطبيب وفؤاد. لم تكن الغرفة مغلقة؛ كان مسرح الجريمة أوسع مما ظن الجميع." },
+      { id:"strong", title:"نهاية الإدانة — دليل حاسم ودافع غامض", requiredClues:["service-card","maintenance-shoes"], requiredInterrogations:["confront:maintenance"], text:"أثبتَّ أن ماهر كذب بشأن بطاقة الخدمة، وأن أثر المنظف على حذائه يربطه بممر الجريمة. يُقبض عليه قبل أن يغادر الفندق، لكنك لم تكشف بعد سبب سرقة ملفات الشركة. أُغلقت القضية جنائيًا، وبقي الدافع الحقيقي في الظل." }
+    ],
+    defaultEnding: { title:"نهاية الحقيقة الناقصة", text:"وصلت إلى القاتل، لكن ملفك لا يحتوي على ما يكفي لإغلاق كل الثغرات. يعترف ماهر بجزء من تحركاته، ثم يتراجع محاميه عن الاعتراف لغياب رابط مادي حاسم. تبقى القضية مفتوحة، وتغادر الفندق وأنت تعرف أن حدسك كان صحيحًا، لكن الحقيقة تحتاج إلى أكثر من حدس." },
     suspects: [
       { id:"maintenance", name:"ماهر — عامل الصيانة", opening:"يبدو هادئًا أكثر مما ينبغي. يقول إنه لم يقترب من الغرفة 17، وإنه كان يصلح لوحة الكهرباء طوال فترة الحادث.", questions:[
         { prompt:"أين كنت عند 11:16؟", answer:"في الطابق السفلي. انقطعت الكهرباء لدقائق، فذهبت إلى لوحة التحكم. لم أصعد إلى الطابق السابع." },
