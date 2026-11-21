@@ -45,6 +45,6 @@ const options = [
 assert.deepEqual(availableByState(options, state).map(x => x.text), ["show map", "avoid tunnel"]);
 assert.match(stateSummary(state), /الوقت المتبقي: 0/);
 assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟", "red-light": "من أضاء المصباح؟" }), /هل وصل النداء؟/);
-assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟" }), /أسئلة مفتوحة \\(2\\)/);
+assert.match(stateSummary(state, { "new-question": "هل وصل النداء؟" }), /أسئلة مفتوحة \(2\)/);
 assert.equal(state.history.length, 2);
 console.log("Story engine tests passed: time, trust, flags, open loops, and conditional choices.");
