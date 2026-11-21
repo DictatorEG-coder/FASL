@@ -73,8 +73,8 @@ async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNul
 function escapeHtml(s:string){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]!));}
 function isAdmin(env:Env,userId:string){return (env.ADMIN_IDS||"").split(",").map(x=>x.trim()).filter(Boolean).includes(userId);}
 async function storyById(db:D1Database,storyId:string):Promise<Story|null>{
-  const row=await db.prepare("SELECT content_json,active FROM stories WHERE story_id=?").bind(storyId).first<{content_json:string;active:number}>();
-  if(row)return row.active===1?parse<Story>(row.content_json):null;
+  const row=await db.prepare("SELECT content_json FROM stories WHERE story_id=?").bind(storyId).first<{content_json:string}>();
+  if(row)return parse<Story>(row.content_json);
   return STORIES.find(s=>s.id===storyId)||null;
 }
 async function ensureSeed(db:D1Database){
@@ -117,7 +117,9 @@ async function finish(env:Env,s:Session,scene:Scene){
   await send(env,s.chat_id,"إذا استمتعت بالقصة، قيّم التجربة:",{inline_keyboard:[[{text:"⭐",callback_data:`rate:${s.session_id}:1`},{text:"⭐⭐",callback_data:`rate:${s.session_id}:2`},{text:"⭐⭐⭐",callback_data:`rate:${s.session_id}:3`},{text:"⭐⭐⭐⭐",callback_data:`rate:${s.session_id}:4`},{text:"⭐⭐⭐⭐⭐",callback_data:`rate:${s.session_id}:5`}]]});
 }
 async function startStory(env:Env,chatId:string,userId:string,storyId:string,mode:"private"|"group"){
-  const story=await storyById(env.DB,storyId);if(!story){await send(env,chatId,"القصة غير متاحة.");return;}
+  const story=await storyById(env.DB,storyId);
+  const status=await env.DB.prepare("SELECT active FROM stories WHERE story_id=?").bind(storyId).first<{active:number}>();
+  if(!story||!status||status.active!==1){await send(env,chatId,"القصة غير متاحة حاليًا.");return;}
   const old=await getSession(env.DB,chatId);
   if(old){await closePollIfOpen(env,old);await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL WHERE session_id=?").bind(old.session_id).run();}
   const session:Session={session_id:id(),chat_id:chatId,user_id: userId,story_id:storyId,scene_id:story.start,status:"active",mode,poll_id:null,pending_poll_scene:null,poll_due_at:null};
