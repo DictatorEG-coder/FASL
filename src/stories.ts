@@ -1,5 +1,5 @@
-import type { StateEffect } from "./story-engine";
-export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[]; effects?: StateEffect };
+import type { StateCondition, StateEffect } from "./story-engine";
+export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[]; effects?: StateEffect; conditions?: StateCondition };
 
 export type Clue = { id: string; title: string; detail: string };
 export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue; opens?: string[]; resolves?: string[] };
@@ -3151,6 +3151,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "اختر نهاية المصالحة غير المكتملة",
+            "conditions": {"minTimeRemaining":15,"minTrust":{"hala":1},"requiresResolvedLoops":["passenger-memories"]},
             "next": "e1",
             "image": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900"
           },
@@ -3166,6 +3167,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "اطلب توثيق الحقيقة كاملة مع أخطاء الجميع",
+            "conditions": {"requires":["mechanical-check"],"requiresResolvedLoops":["emergency-location"]},
             "next": "e2",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900"
           },
@@ -3181,6 +3183,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "احتفظ بالرسم دون إضافة تفسير",
+            "conditions": {"requires":["map-consulted"],"requiresResolvedLoops":["old-road-warning"]},
             "next": "e4",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900"
           },
