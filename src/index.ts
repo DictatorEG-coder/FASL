@@ -30,6 +30,23 @@ async function send(env:Env,chat_id:string,text:string,reply_markup?:unknown) {
 async function sendPhoto(env:Env,chat_id:string,photo:string,caption:string,reply_markup?:unknown) {
   return tg(env,"sendPhoto",{chat_id,photo,caption,parse_mode:"HTML",...(reply_markup?{reply_markup}:{})});
 }
+async function resolveCaseEnding(env:Env,s:Session,story:Story){
+  const file=story.caseFile;
+  if(!file)return {title:"القضية حُلّت",text:story.title};
+  const [clues,interrogations]=await Promise.all([
+    env.DB.prepare("SELECT clue_id FROM session_clues WHERE session_id=?").bind(s.session_id).all<{clue_id:string}>(),
+    env.DB.prepare("SELECT question_key FROM session_interrogations WHERE session_id=?").bind(s.session_id).all<{question_key:string}>()
+  ]);
+  const clueSet=new Set(clues.results.map(x=>x.clue_id));
+  const interrogationSet=new Set(interrogations.results.map(x=>x.question_key));
+  const ending=file.endings?.find(x=>x.requiredClues.every(id=>clueSet.has(id))&&x.requiredInterrogations.every(key=>interrogationSet.has(key)));
+  return ending?{title:ending.title,text:ending.text}:file.defaultEnding||{title:"القضية حُلّت",text:file.explanation};
+}
+async function showCaseResolution(env:Env,s:Session,story:Story){
+  const ending=await resolveCaseEnding(env,s,story);
+  await send(env,s.chat_id,`<b>أحسنتم! حلّت المجموعة القضية.</b>\\n\\n<b>${escapeHtml(ending.title)}</b>\\n${escapeHtml(ending.text)}\\n\\n<b>انتهى التحقيق.</b>`);
+  await finish(env,s,{text:ending.title,ending:true});
+}
 async function showInterrogationMenu(env:Env,s:Session,story:Story){
   const suspects=story.caseFile?.suspects||[];if(!suspects.length)return;
   await send(env,s.chat_id,"<b>🕵️ غرفة الاستجواب</b>\nاختر شخصًا لمواجهته. يمكنك العودة إلى هنا بعد جمع أدلة جديدة.",{inline_keyboard:suspects.map(x=>[{text:x.name,callback_data:`suspect:${s.session_id}:${x.id}`}])});
@@ -194,8 +211,9 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
       const interrogations=await env.DB.prepare("SELECT COUNT(*) n FROM session_interrogations WHERE session_id=?").bind(sessionId).first<{n:number}>();
       if((count?.n||0)<story.caseFile.minimumClues||(interrogations?.n||0)<story.caseFile.minimumInterrogations){await send(env,chatId,`لا تتسرع في الاتهام. تحتاج إلى ${story.caseFile.minimumClues} قرائن و${story.caseFile.minimumInterrogations} استجوابات على الأقل. لديك الآن ${count?.n||0} قرائن و${interrogations?.n||0} استجوابات.`);return;}
       if(choice.suspectId!==story.caseFile.correctSuspectId){await send(env,chatId,"اتهام غير صحيح. هناك تفصيل صغير لا يتفق مع روايتك. راجع القرائن وحاول مجددًا.");return;}
-      await send(env,chatId,`<b>أحسنت! لقد حللت القضية.</b>\n\n${escapeHtml(story.caseFile.explanation)}\n\n<b>انتهى التحقيق.</b>`);
-      await finish(env,s,{text:"تم حل القضية.",ending:true});return;
+      const ending=await resolveCaseEnding(env,s,story);
+      await send(env,chatId,`<b>أحسنت! لقد حللت القضية.</b>\n\n<b>${escapeHtml(ending.title)}</b>\n${escapeHtml(ending.text)}\n\n<b>انتهى التحقيق.</b>`);
+      await finish(env,s,{text:ending.title,ending:true});return;
     }
     await showScene(env,s,story,choice.next);
   }
@@ -235,8 +253,7 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
         await showScene(env,s,story,s.scene_id);return;
       }
       if(selected.suspectId===story.caseFile.correctSuspectId){
-        await send(env,s.chat_id,"<b>أحسنتم! حلّت المجموعة القضية.</b>\n\n"+escapeHtml(story.caseFile.explanation)+"\n\n<b>انتهى التحقيق.</b>");
-        await finish(env,s,{text:"تم حل القضية.",ending:true});return;
+        await showCaseResolution(env,s,story);return;
       }
       await send(env,s.chat_id,"اتهام غير صحيح. أعيدوا مراجعة القرائن؛ ما زال هناك تفصيل لا يتفق مع روايتكم.");
       await showScene(env,s,story,s.scene_id);return;
