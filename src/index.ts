@@ -51,9 +51,18 @@ async function showInterrogationMenu(env:Env,s:Session,story:Story){
   const suspects=story.caseFile?.suspects||[];if(!suspects.length)return;
   await send(env,s.chat_id,"<b>🕵️ غرفة الاستجواب</b>\nاختر شخصًا لمواجهته. يمكنك العودة إلى هنا بعد جمع أدلة جديدة.",{inline_keyboard:suspects.map(x=>[{text:x.name,callback_data:`suspect:${s.session_id}:${x.id}`}])});
 }
+async function eligibleChoices(env:Env,sessionId:string,choices:NonNullable<Scene["choices"]>){
+  const rows=await env.DB.prepare("SELECT clue_id FROM session_clues WHERE session_id=?").bind(sessionId).all<{clue_id:string}>();
+  const flags=new Set(rows.results.map(x=>x.clue_id));
+  return choices.filter(c=>(!c.requires||c.requires.every(x=>flags.has(x)))&&(!c.excludes||c.excludes.every(x=>!flags.has(x))));
+}
+async function grantChoiceEffects(env:Env,sessionId:string,choice:NonNullable<Scene["choices"]>[number]){
+  for(const clue of choice.grants||[]) await env.DB.prepare("INSERT OR IGNORE INTO session_clues(session_id,clue_id,title,detail) VALUES(?,?,?,?)").bind(sessionId,clue.id,clue.title,clue.detail).run();
+}
 async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNullable<Scene["choices"]>) {
-  for(let i=0;i<choices.length;i++){
-    const choice=choices[i];
+  const available=await eligibleChoices(env,sessionId,choices);
+  for(let i=0;i<available.length;i++){
+    const choice=available[i];
     const markup={inline_keyboard:[[{text:choice.text,callback_data:`choose:${sessionId}:${i}`}]]};
     if(choice.image){
       try{await sendPhoto(env,chatId,choice.image,`<b>${escapeHtml(choice.text)}</b>`,markup);}
@@ -204,8 +213,10 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
   if(data.startsWith("choose:")){
     const [,sessionId,indexText]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status='active'").bind(sessionId).first<Session>();
     if(!s||s.user_id!==userId){await send(env,chatId,"هذا الاختيار لا يخص جلستك الحالية.");return;}
-    const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id],choice=scene?.choices?.[Number(indexText)];
-    if(!story||!scene||!choice){await send(env,chatId,"تعذر تنفيذ الاختيار.");return;}
+    const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];
+    const available=scene?await eligibleChoices(env,sessionId,scene.choices||[]):[];
+    const choice=available[Number(indexText)];
+    if(!story||!scene||!choice){await send(env,chatId,"هذا الخيار لم يعد متاحًا؛ ربما تغيّرت حالة القصة.");return;}
     if(choice.suspectId&&story.caseFile){
       const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(sessionId).first<{n:number}>();
       const interrogations=await env.DB.prepare("SELECT COUNT(*) n FROM session_interrogations WHERE session_id=?").bind(sessionId).first<{n:number}>();
@@ -215,6 +226,7 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
       await send(env,chatId,`<b>أحسنت! لقد حللت القضية.</b>\n\n<b>${escapeHtml(ending.title)}</b>\n${escapeHtml(ending.text)}\n\n<b>انتهى التحقيق.</b>`);
       await finish(env,s,{text:ending.title,ending:true});return;
     }
+    await grantChoiceEffects(env,sessionId,choice);
     await showScene(env,s,story,choice.next);
   }
 }
@@ -223,14 +235,16 @@ async function publishDuePolls(env:Env){
   for(const s of due.results){
     const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.pending_poll_scene||s.scene_id];
     if(!story||!scene||!scene.choices?.length)continue;
+    const available=await eligibleChoices(env,s.session_id,scene.choices);
+    if(!available.length){await send(env,s.chat_id,"لا يوجد قرار متاح في هذا المشهد. أوقفنا الجلسة لحماية مسارها.");continue;}
     try{
-      for(const choice of scene.choices){
+      for(const choice of available){
         if(choice.image){
           try{await sendPhoto(env,s.chat_id,choice.image,`<b>${escapeHtml(choice.text)}</b>`);}
           catch(e){console.error("group choice image failed",e);await send(env,s.chat_id,`<b>${escapeHtml(choice.text)}</b>`);}
         } else await send(env,s.chat_id,`<b>${escapeHtml(choice.text)}</b>`);
       }
-      const p=await tg(env,"sendPoll",{chat_id:s.chat_id,question:"اختر القرار الذي تريدونه:",options:scene.choices.map(c=>c.text),is_anonymous:false,allows_multiple_answers:false,open_period:Number(env.POLL_DURATION_SECONDS||120)});
+      const p=await tg(env,"sendPoll",{chat_id:s.chat_id,question:"اختر القرار الذي تريدونه:",options:available.map(c=>c.text),is_anonymous:false,allows_multiple_answers:false,open_period:Number(env.POLL_DURATION_SECONDS||120)});
       await env.DB.prepare("UPDATE sessions SET poll_id=?,poll_message_id=?,status='polling',updated_at=CURRENT_TIMESTAMP WHERE session_id=? AND status='waiting_poll'").bind(p.id,p.message_id,s.session_id).run();
     }catch(e){console.error("poll publish failed",e);await send(env,s.chat_id,"تعذر فتح التصويت. أعد المحاولة عبر /stop ثم /stories.");}
   }
@@ -240,10 +254,11 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   const s=await env.DB.prepare("SELECT * FROM sessions WHERE poll_id=? AND status='polling'").bind(poll.id).first<Session>();
   if(!s)return;
   const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];if(!story||!scene)return;
+  const available=await eligibleChoices(env,s.session_id,scene.choices||[]);
   const max=Math.max(0,...poll.options.map(o=>o.voter_count));
   const winners=poll.options.map((o,i)=>({o,i})).filter(x=>x.o.voter_count===max&&max>0);
   if(winners.length===1){
-    const selected=scene.choices?.[winners[0].i];
+    const selected=available[winners[0].i];
     if(selected?.suspectId&&story.caseFile){
       const count=await env.DB.prepare("SELECT COUNT(*) n FROM session_clues WHERE session_id=?").bind(s.session_id).first<{n:number}>();
       const interrogations=await env.DB.prepare("SELECT COUNT(*) n FROM session_interrogations WHERE session_id=?").bind(s.session_id).first<{n:number}>();
@@ -268,11 +283,12 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
   if(winners.length===1)next=scene.choices?.[winners[0].i]?.next||"";
   else if(scene.tieNext){await send(env,s.chat_id,scene.tieText||"تعادل التصويت؛ تتداخل المسارات.");next=scene.tieNext;}
   else {
-    const distinct=[...new Set(winners.map(w=>scene.choices?.[w.i]?.next).filter(Boolean))] as string[];
+    const distinct=[...new Set(winners.map(w=>available[w.i]?.next).filter(Boolean))] as string[];
     next=distinct.length===1?distinct[0]:"";
   }
   await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
   if(!next){await send(env,s.chat_id,"انتهى التصويت بالتعادل. أوقفنا الجلسة بدل اختيار مسار عشوائي.");await env.DB.prepare("UPDATE sessions SET status='finished' WHERE session_id=?").bind(s.session_id).run();return;}
+  if(winners.length===1) await grantChoiceEffects(env,s.session_id,available[winners[0].i]);
   await showScene(env,s,story,next);
 }
 async function handleUpdate(env:Env,u:TgUpdate){
