@@ -1,0 +1,20 @@
+{
+  "name": "fasl-telegram-story-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:local": "wrangler d1 execute fasl-db --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute fasl-db --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20261121.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.45.0",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,19 @@
+name = "fasl-bot"
+main = "src/index.ts"
+compatibility_date = "2026-11-21"
+workers_dev = true
+
+[vars]
+APP_NAME = "فَصْل | FASL"
+POLL_DELAY_SECONDS = "120"
+POLL_DURATION_SECONDS = "120"
+FRIDAY_REMINDER_ENABLED = "true"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fasl-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["* * * * *"]

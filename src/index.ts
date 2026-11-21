@@ -1,0 +1,168 @@
+import { STORIES, type Story, type Scene } from "./stories";
+
+interface Env {
+  DB: D1Database;
+  BOT_TOKEN: string;
+  WEBHOOK_SECRET: string;
+  ADMIN_IDS?: string;
+  APP_NAME?: string;
+  POLL_DELAY_SECONDS?: string;
+  POLL_DURATION_SECONDS?: string;
+  FRIDAY_REMINDER_ENABLED?: string;
+}
+type TgMessage = { message_id:number; chat:{id:number;type:string;title?:string}; from?:{id:number;first_name?:string;username?:string}; text?:string };
+type TgUpdate = { update_id:number; message?:TgMessage; callback_query?:{id:string;from:{id:number;first_name?:string;username?:string};message?:TgMessage;data?:string}; poll?:{id:string;is_closed:boolean;options:{text:string;voter_count:number}[]}; my_chat_member?:unknown };
+type Session = {session_id:string;chat_id:string;user_id:string;story_id:string;scene_id:string;status:string;mode:"private"|"group";poll_id:string|null;pending_poll_scene:string|null;poll_due_at:number|null};
+const json = (v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:{"content-type":"application/json; charset=utf-8"}});
+const now = ()=>Math.floor(Date.now()/1000);
+const id = ()=>crypto.randomUUID();
+const parse = <T>(s:string)=>JSON.parse(s) as T;
+
+async function tg(env:Env,method:string,payload:Record<string,unknown>={}) {
+  const r=await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+  const data=await r.json() as {ok:boolean;result:any;description?:string};
+  if(!r.ok||!data.ok) throw new Error(data.description||`Telegram API ${method} failed`);
+  return data.result;
+}
+async function send(env:Env,chat_id:string,text:string,reply_markup?:unknown) {
+  return tg(env,"sendMessage",{chat_id,text,parse_mode:"HTML",disable_web_page_preview:true,...(reply_markup?{reply_markup}:{})});
+}
+function escapeHtml(s:string){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]!));}
+function isAdmin(env:Env,userId:string){return (env.ADMIN_IDS||"").split(",").map(x=>x.trim()).filter(Boolean).includes(userId);}
+async function storyById(db:D1Database,storyId:string):Promise<Story|null>{
+  const row=await db.prepare("SELECT content_json FROM stories WHERE story_id=? AND active=1").bind(storyId).first<{content_json:string}>();
+  if(row)return parse<Story>(row.content_json);
+  return STORIES.find(s=>s.id===storyId)||null;
+}
+async function ensureSeed(db:D1Database){
+  for(const s of STORIES) await db.prepare("INSERT OR IGNORE INTO stories(story_id,title,description,genre,estimated_minutes,content_json) VALUES(?,?,?,?,?,?)").bind(s.id,s.title,s.description,s.genre,s.minutes,JSON.stringify(s)).run();
+}
+async function recordUser(env:Env,m:TgMessage){
+  if(m.from) await env.DB.prepare("INSERT INTO users(telegram_id,first_name,username) VALUES(?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET first_name=excluded.first_name,username=excluded.username,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.from.id),m.from.first_name||"",m.from.username||null).run();
+  await env.DB.prepare("INSERT INTO chats(chat_id,chat_type,title) VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.chat.id),m.chat.type,m.chat.title||null).run();
+}
+async function listStories(env:Env,chatId:string){
+  const rows=await env.DB.prepare("SELECT story_id,title,description,genre,estimated_minutes FROM stories WHERE active=1 ORDER BY created_at").all<{story_id:string;title:string;description:string;genre:string;estimated_minutes:number}>();
+  const keyboard=rows.results.map(s=>[{text:`${s.title} · ${s.estimated_minutes} د`,callback_data:`play:${s.story_id}`}]);
+  if(!keyboard.length){await send(env,chatId,"لا توجد قصص متاحة حاليًا.");return;}
+  await send(env,chatId,"<b>مكتبة فَصْل</b>\nاختر قصة لبدء التجربة:",{inline_keyboard:keyboard});
+}
+async function getSession(db:D1Database,chatId:string){return db.prepare("SELECT * FROM sessions WHERE chat_id=? AND status IN ('active','waiting_poll')").bind(chatId).first<Session>();}
+async function showScene(env:Env,session:Session,story:Story,sceneId:string){
+  const scene=story.scenes[sceneId]; if(!scene){await send(env,session.chat_id,"حدث خلل في مسار القصة. أوقفنا الجلسة لحماية تقدمك.");return;}
+  await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
+  if(session.mode==="group"){
+    await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
+    if(scene.ending){await finish(env,session,scene);return;}
+    await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
+    return;
+  }
+  if(scene.ending){await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}\n\n<b>انتهت القصة.</b>`);await finish(env,session,scene);return;}
+  const keyboard=(scene.choices||[]).map((c,i)=>[{text:c.text,callback_data:`choose:${session.session_id}:${i}`}]);
+  await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`,{inline_keyboard:keyboard});
+}
+async function finish(env:Env,s:Session,scene:Scene){
+  await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+  await send(env,s.chat_id,"إذا استمتعت بالقصة، شاركنا رأيك أو كلمة حلوة عن التجربة.");
+}
+async function startStory(env:Env,chatId:string,userId:string,storyId:string,mode:"private"|"group"){
+  const story=await storyById(env.DB,storyId);if(!story){await send(env,chatId,"القصة غير متاحة.");return;}
+  const old=await getSession(env.DB,chatId);
+  if(old) await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(old.session_id).run();
+  const session:Session={session_id:id(),chat_id:chatId,user_id: userId,story_id:storyId,scene_id:story.start,status:"active",mode,poll_id:null,pending_poll_scene:null,poll_due_at:null};
+  await env.DB.prepare("INSERT INTO sessions(session_id,chat_id,user_id,story_id,scene_id,status,mode) VALUES(?,?,?,?,?,'active',?)").bind(session.session_id,chatId,userId,storyId,story.start,mode).run();
+  await showScene(env,session,story,story.start);
+}
+async function onMessage(env:Env,m:TgMessage){
+  await recordUser(env,m);
+  const chatId=String(m.chat.id),userId=String(m.from?.id||"");
+  const text=(m.text||"").trim();
+  if(text.startsWith("/start")){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قصة أو /help للمساعدة.");return;}
+  if(text==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
+  if(text==="/stories"){await listStories(env,chatId);return;}
+  if(text==="/stop"){const s=await getSession(env.DB,chatId);if(s){await env.DB.prepare("UPDATE sessions SET status='stopped' WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
+  if(text==="/admin"){
+    if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
+    const [u,c,a]=await Promise.all([env.DB.prepare("SELECT COUNT(*) n FROM users").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM chats").first<{n:number}>(),env.DB.prepare("SELECT COUNT(*) n FROM sessions WHERE status='active'").first<{n:number}>()]);
+    await send(env,chatId,`<b>لوحة فَصْل</b>\nالمستخدمون: ${u?.n||0}\nالمحادثات والمجموعات: ${c?.n||0}\nالجلسات النشطة: ${a?.n||0}\n\nإدارة القصص والإذاعة ستضاف عبر أوامر المالك في المرحلة التالية.`);return;
+  }
+  if(text.startsWith("/"))return;
+  const s=await getSession(env.DB,chatId);if(s&&s.mode==="private") await send(env,chatId,"اختر أحد الأزرار أسفل المشهد حتى يستمر السرد.");
+}
+async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
+  await tg(env,"answerCallbackQuery",{callback_query_id:q.id});
+  const data=q.data||"",chatId=String(q.message?.chat.id||q.from.id),userId=String(q.from.id);
+  if(data.startsWith("play:")){
+    const storyId=data.slice(5),mode=q.message?.chat.type==="private"?"private":"group";
+    if(mode==="group"&&!isAdmin(env,userId)){await send(env,chatId,"بدء القصص في المجموعة متاح للمشرفين فقط.");return;}
+    await startStory(env,chatId,userId,storyId,mode);return;
+  }
+  if(data.startsWith("choose:")){
+    const [,sessionId,indexText]=data.split(":"),s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status='active'").bind(sessionId).first<Session>();
+    if(!s||s.user_id!==userId){await send(env,chatId,"هذا الاختيار لا يخص جلستك الحالية.");return;}
+    const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id],choice=scene?.choices?.[Number(indexText)];
+    if(!story||!scene||!choice){await send(env,chatId,"تعذر تنفيذ الاختيار.");return;}
+    await showScene(env,s,story,choice.next);
+  }
+}
+async function publishDuePolls(env:Env){
+  const due=await env.DB.prepare("SELECT * FROM sessions WHERE status='waiting_poll' AND poll_due_at<=?").bind(now()).all<Session>();
+  for(const s of due.results){
+    const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.pending_poll_scene||s.scene_id];
+    if(!story||!scene||!scene.choices?.length)continue;
+    try{
+      const p=await tg(env,"sendPoll",{chat_id:s.chat_id,question:"ما القرار التالي؟",options:scene.choices.map(c=>c.text),is_anonymous:false,allows_multiple_answers:false,open_period:Number(env.POLL_DURATION_SECONDS||120)});
+      await env.DB.prepare("UPDATE sessions SET poll_id=?,poll_message_id=?,status='polling',updated_at=CURRENT_TIMESTAMP WHERE session_id=? AND status='waiting_poll'").bind(p.id,p.message_id,s.session_id).run();
+    }catch(e){console.error("poll publish failed",e);await send(env,s.chat_id,"تعذر فتح التصويت. أعد المحاولة عبر /stop ثم /stories.");}
+  }
+}
+async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{text:string;voter_count:number}[]}){
+  if(!poll.is_closed)return;
+  const s=await env.DB.prepare("SELECT * FROM sessions WHERE poll_id=? AND status='polling'").bind(poll.id).first<Session>();
+  if(!s)return;
+  const story=await storyById(env.DB,s.story_id),scene=story?.scenes[s.scene_id];if(!story||!scene)return;
+  const max=Math.max(0,...poll.options.map(o=>o.voter_count));
+  const winners=poll.options.map((o,i)=>({o,i})).filter(x=>x.o.voter_count===max&&max>0);
+  let next:string;
+  if(winners.length===1)next=scene.choices?.[winners[0].i]?.next||"";
+  else if(scene.tieNext){await send(env,s.chat_id,scene.tieText||"تعادل التصويت؛ تتداخل المسارات.");next=scene.tieNext;}
+  else {
+    const distinct=[...new Set(winners.map(w=>scene.choices?.[w.i]?.next).filter(Boolean))] as string[];
+    next=distinct.length===1?distinct[0]:"";
+  }
+  await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
+  if(!next){await send(env,s.chat_id,"انتهى التصويت بالتعادل. أوقفنا الجلسة بدل اختيار مسار عشوائي.");await env.DB.prepare("UPDATE sessions SET status='finished' WHERE session_id=?").bind(s.session_id).run();return;}
+  await showScene(env,s,story,next);
+}
+async function handleUpdate(env:Env,u:TgUpdate){
+  if(u.message)await onMessage(env,u.message);
+  if(u.callback_query)await onCallback(env,u.callback_query);
+  if(u.poll)await resolvePoll(env,u.poll);
+}
+async function fridayReminder(env:Env){
+  if(env.FRIDAY_REMINDER_ENABLED!=="true")return;
+  const day=new Date().getUTCDay();if(day!==5)return;
+  const hour=new Date().getUTCHours();if(hour!==9)return;
+  const key=new Date().toISOString().slice(0,10);
+  const sent=await env.DB.prepare("SELECT value FROM settings WHERE key=?").bind("friday:"+key).first<{value:string}>();if(sent)return;
+  const chats=await env.DB.prepare("SELECT chat_id FROM chats").all<{chat_id:string}>();
+  for(const c of chats.results)try{await send(env,c.chat_id,"تذكير الجمعة: أكثروا من الصلاة والسلام على النبي ﷺ، ولا تنسوا قراءة سورة الكهف.");}catch(e){console.error("friday reminder",e);}
+  await env.DB.prepare("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)").bind("friday:"+key,"sent").run();
+}
+export default {
+  async fetch(request:Request,env:Env):Promise<Response>{
+    const url=new URL(request.url);
+    if(request.method==="GET"&&url.pathname==="/")return new Response("FASL bot is running.");
+    if(request.method!=="POST"||url.pathname!=="/webhook")return json({ok:false,error:"Not found"},404);
+    if(!env.BOT_TOKEN||!env.WEBHOOK_SECRET)return json({ok:false,error:"Missing secrets"},503);
+    if(request.headers.get("X-Telegram-Bot-Api-Secret-Token")!==env.WEBHOOK_SECRET)return json({ok:false,error:"Unauthorized"},401);
+    const update=await request.json() as TgUpdate;
+    const claimed=await env.DB.prepare("INSERT OR IGNORE INTO processed_updates(update_id) VALUES(?)").bind(update.update_id).run();
+    if(!claimed.meta.changes)return json({ok:true,deduplicated:true});
+    try{await ensureSeed(env.DB);await handleUpdate(env,update);return json({ok:true});}
+    catch(e){console.error("update failed",e);return json({ok:false},200);}
+  },
+  async scheduled(_event:ScheduledEvent,env:Env,ctx:ExecutionContext){
+    ctx.waitUntil((async()=>{await ensureSeed(env.DB);await publishDuePolls(env);await fridayReminder(env);})());
+  }
+};
