@@ -73,8 +73,8 @@ async function showChoices(env:Env,chatId:string,sessionId:string,choices:NonNul
 function escapeHtml(s:string){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]!));}
 function isAdmin(env:Env,userId:string){return (env.ADMIN_IDS||"").split(",").map(x=>x.trim()).filter(Boolean).includes(userId);}
 async function storyById(db:D1Database,storyId:string):Promise<Story|null>{
-  const row=await db.prepare("SELECT content_json FROM stories WHERE story_id=? AND active=1").bind(storyId).first<{content_json:string}>();
-  if(row)return parse<Story>(row.content_json);
+  const row=await db.prepare("SELECT content_json,active FROM stories WHERE story_id=?").bind(storyId).first<{content_json:string;active:number}>();
+  if(row)return row.active===1?parse<Story>(row.content_json):null;
   return STORIES.find(s=>s.id===storyId)||null;
 }
 async function ensureSeed(db:D1Database){
@@ -286,8 +286,13 @@ async function resolvePoll(env:Env,poll:{id:string;is_closed:boolean;options:{te
     const distinct=[...new Set(winners.map(w=>available[w.i]?.next).filter(Boolean))] as string[];
     next=distinct.length===1?distinct[0]:"";
   }
+  if(!next&&winners.length>1){
+    await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='waiting_poll',pending_poll_scene=?,poll_due_at=?,updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.scene_id,now()+15,s.session_id).run();
+    await send(env,s.chat_id,"تعادل التصويت بين مسارات مختلفة. لن نختار نيابةً عنكم؛ سنعيد التصويت بعد لحظات حتى تحسموا القرار.");
+    return;
+  }
   await env.DB.prepare("UPDATE sessions SET poll_id=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
-  if(!next){await send(env,s.chat_id,"انتهى التصويت بالتعادل. أوقفنا الجلسة بدل اختيار مسار عشوائي.");await env.DB.prepare("UPDATE sessions SET status='finished' WHERE session_id=?").bind(s.session_id).run();return;}
+  if(!next){await send(env,s.chat_id,"تعذر تحديد المسار التالي. أوقفنا الجلسة لحماية تقدمكم.");await env.DB.prepare("UPDATE sessions SET status='finished' WHERE session_id=?").bind(s.session_id).run();return;}
   if(winners.length===1) await grantChoiceEffects(env,s.session_id,available[winners[0].i]);
   await showScene(env,s,story,next);
 }
