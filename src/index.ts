@@ -67,6 +67,7 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
   if(session.mode==="group"){
     await send(env,session.chat_id,`<b>${escapeHtml(story.title)}</b>\n\n${escapeHtml(scene.text)}`);
+    if(story.caseFile) await send(env,session.chat_id,"يمكنكم مراجعة القرائن التي جمعتها المجموعة:",{inline_keyboard:[[{text:"📁 دفتر الأدلة",callback_data:`clues:${session.session_id}`}]]});
     if(scene.ending){await finish(env,session,scene);return;}
     await env.DB.prepare("UPDATE sessions SET status='waiting_poll',pending_poll_scene=?,poll_due_at=? WHERE session_id=?").bind(sceneId,now()+Number(env.POLL_DELAY_SECONDS||120),session.session_id).run();
     return;
@@ -137,7 +138,7 @@ async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
   if(data.startsWith("clues:")){
     const sessionId=data.slice(6);
     const s=await env.DB.prepare("SELECT * FROM sessions WHERE session_id=? AND status IN ('active','waiting_poll','polling')").bind(sessionId).first<Session>();
-    if(!s||s.user_id!==userId){await send(env,chatId,"دفتر الأدلة غير متاح لهذه الجلسة.");return;}
+    if(!s||(s.mode==="private"&&s.user_id!==userId)){await send(env,chatId,"دفتر الأدلة غير متاح لهذه الجلسة.");return;}
     const rows=await env.DB.prepare("SELECT title,detail FROM session_clues WHERE session_id=? ORDER BY rowid").bind(sessionId).all<{title:string;detail:string}>();
     if(!rows.results.length){await send(env,chatId,"لم تجمع أي دليل بعد. انتبه للتفاصيل الصغيرة.");return;}
     await send(env,chatId,"<b>📁 دفتر الأدلة</b>\n\n"+rows.results.map((x,i)=>`${i+1}. <b>${escapeHtml(x.title)}</b>\n${escapeHtml(x.detail)}`).join("\n\n"));return;
