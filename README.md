@@ -73,6 +73,7 @@ npm run dev
 - `schema.sql`: جداول D1 والفهارس.
 - `scripts/validate-assessments.mjs`: فحص محتوى الاختبارات ونتائجها، بما فيها بنية IPIP-50 والتصحيح العكسي.
 - `EDITORIAL_STANDARD.md`: بوابة المراجعة التحريرية وحقوق المصادر والاختبارات.
+- `EDITORIAL_REVIEWS.md`: سجل الدرجات والملاحظات التحريرية للأعمال التي تمت مراجعتها فعليًا.
 - `wrangler.toml`: إعدادات Worker وD1 وCron.
 
 
