@@ -1,8 +1,8 @@
 export type Axis = "analysis" | "creation" | "action" | "people" | "strategy" | "exploration" | "organization";
 export type TestOption = { text: string; scores: Partial<Record<Axis, number>> };
-export type TestQuestion = { prompt: string; options: TestOption[]; correctIndex?: number; explanation?: string };
+export type TestQuestion = { prompt: string; options: TestOption[]; correctIndex?: number; explanation?: string; factor?: Axis; reverse?: boolean };
 export type FaslTest = {
-  id: string; title: string; description: string; questions: TestQuestion[]; kind?: "aptitude";
+  id: string; title: string; description: string; questions: TestQuestion[]; kind?: "aptitude" | "big-five"; sourceNote?: string;
   results: Record<Axis, { title: string; description: string; strengths: string; improve: string; match: string }>;
 };
 
@@ -14,6 +14,12 @@ const generalResults: FaslTest["results"] = {
   strategy: { title: "الاستراتيجي", description: "تنظر إلى الصورة الكبيرة وتفكر في العواقب والخطوات التالية. يهمك أن يكون للقرار اتجاه واضح.", strengths: "ترتيب الأولويات، توقع النتائج، التنظيم، ورؤية الأنماط.", improve: "اترك مساحة للتغيير عندما تظهر معلومات جديدة، ولا تتمسك بالخطة لمجرد أنها خطتك.", match: "الإدارة، الاستراتيجية، قيادة الفرق، الاستشارات، وتطوير الأعمال." },
   exploration: { title: "المستكشف", description: "تنجذب إلى المجهول والتجارب الجديدة، وتتعلم بالملاحظة والسؤال وتجربة طرق مختلفة.", strengths: "الفضول، سرعة التعلم، التكيف، والانفتاح على التجربة.", improve: "اختر ما يستحق الاستمرار؛ ليس كل جديد فرصة يجب ملاحقتها.", match: "البحث والتطوير، الاستكشاف، التقنية، الصحافة، والتعلم المستمر." },
   organization: { title: "المنظّم", description: "ترتاح إلى وضوح الإجراءات وترتيب المعلومات ومتابعة التفاصيل حتى تكتمل المهمة.", strengths: "الانضباط، التوثيق، الاتساق، وإدارة التفاصيل.", improve: "لا تجعل الالتزام بالإجراء يمنعك من اقتراح تحسينه عندما لا يعود مناسبًا.", match: "المحاسبة، إدارة العمليات، الامتثال، إدارة السجلات، وضبط الجودة." }
+
+  extraversion: { title: "الانبساط", description: "يعكس مدى ارتياحك للتفاعل الاجتماعي والمبادرة بالكلام والظهور بين الناس. لا يعني تفضيل الهدوء ضعفًا اجتماعيًا.", strengths: "قد تستمتع ببناء العلاقات وبدء التفاعل والمشاركة في المواقف الجماعية.", improve: "وازن بين المبادرة الاجتماعية وإتاحة مساحة للإنصات والهدوء.", match: "التواصل، العمل الجماعي، العلاقات، والأدوار التي تتطلب تفاعلًا مستمرًا." },
+  agreeableness: { title: "التوافق والود", description: "يرتبط بالاهتمام بالآخرين والتعاطف والتعاون وطريقة التعامل مع الخلاف.", strengths: "التفهم، مراعاة مشاعر الآخرين، والتعاون.", improve: "حافظ على حدودك وعبّر عن الاختلاف بوضوح دون قسوة.", match: "الأدوار التعاونية والخدمية والتعليمية وبناء العلاقات." },
+  conscientiousness: { title: "يقظة الضمير والتنظيم", description: "يرتبط بالاستعداد والانضباط والانتباه للتفاصيل والالتزام بالمهام.", strengths: "التخطيط، المتابعة، الدقة، والاعتمادية.", improve: "تجنب الكمالية المرهقة واسمح بتعديل الخطة عند الحاجة.", match: "التنظيم، إدارة المشاريع، الجودة، والمهام التي تتطلب متابعة دقيقة." },
+  emotionalStability: { title: "الاستقرار الانفعالي", description: "يعكس إجاباتك عن الهدوء والتأثر بالضغط وتقلب الانفعال؛ لا يقيس الصحة النفسية ولا يشخّص اضطرابًا.", strengths: "قدرة أكبر على الحفاظ على الهدوء والتعافي من الضغوط عندما تكون الدرجة أعلى.", improve: "لاحظ مصادر الضغط واطلب الدعم المناسب عند الحاجة، مهما كانت الدرجة.", match: "لا يحدد مهنة مناسبة بمفرده؛ يُفهم ضمن بقية السمات والسياق." },
+  openness: { title: "الانفتاح على الخبرة", description: "يرتبط بالخيال والفضول والأفكار المجردة والتأمل والاستعداد لتجربة طرق جديدة.", strengths: "الفضول، الخيال، واستكشاف الأفكار والاحتمالات.", improve: "اربط الاستكشاف بالتطبيق، وامنح الأفكار وقتًا للتحقق.", match: "التعلم، البحث، الإبداع، وحل المشكلات المفتوحة." },
 };
 
 const qs = (items: [string, [string, Axis][], [string, Axis][], [string, Axis][]]): TestQuestion[] =>
@@ -76,12 +82,85 @@ const workplace: TestQuestion[] = [
   {prompt:"اقترح زميل فكرة جيدة لكنها تحتاج اختبارًا قبل اعتمادها. ماذا تفعل؟",options:[{text:"أصمم تجربة محدودة بمقياس نجاح واضح",scores:{exploration:1,analysis:1,creation:1}},{text:"أعتمدها فورًا لأنها تبدو واعدة",scores:{action:1}},{text:"أرفضها لأنها لم تُستخدم سابقًا",scores:{analysis:1}},{text:"أجمع أصحاب العلاقة لتقييم أثرها",scores:{people:2,strategy:1}}]}
 ];
 
+
+const likert = [
+  "لا تصفني إطلاقًا",
+  "غالبًا لا تصفني",
+  "تصفني أحيانًا",
+  "غالبًا تصفني",
+  "تصفني تمامًا"
+];
+const bigFiveItem = (prompt: string, factor: Axis, reverse = false): TestQuestion => ({
+  prompt, factor, reverse,
+  options: likert.map((text, index) => ({ text, scores: { [factor]: index + 1 } }))
+});
+
+// IPIP Big-Five Factor Markers: ten published markers for each of the five factors.
+// Arabic wording below is an original working translation, not a separately validated Arabic form.
+const bigFive: TestQuestion[] = [
+  bigFiveItem("أنا شخص يضفي الحيوية على التجمعات.", "extraversion"),
+  bigFiveItem("أشعر بالارتياح بين الناس.", "extraversion"),
+  bigFiveItem("أبدأ المحادثات مع الآخرين.", "extraversion"),
+  bigFiveItem("أتحدث مع أشخاص كثيرين ومختلفين في المناسبات.", "extraversion"),
+  bigFiveItem("لا أمانع أن أكون محط الأنظار.", "extraversion"),
+  bigFiveItem("لا أتحدث كثيرًا.", "extraversion", true),
+  bigFiveItem("أفضل البقاء في الخلفية.", "extraversion", true),
+  bigFiveItem("ليس لدي الكثير لأقوله.", "extraversion", true),
+  bigFiveItem("لا أحب لفت الانتباه إلى نفسي.", "extraversion", true),
+  bigFiveItem("أكون هادئًا مع الغرباء.", "extraversion", true),
+
+  bigFiveItem("أهتم بالناس وما يمرون به.", "agreeableness"),
+  bigFiveItem("أتعاطف مع مشاعر الآخرين.", "agreeableness"),
+  bigFiveItem("لدي قلب رقيق.", "agreeableness"),
+  bigFiveItem("أخصص وقتًا لمساعدة الآخرين.", "agreeableness"),
+  bigFiveItem("أتأثر بمشاعر من حولي.", "agreeableness"),
+  bigFiveItem("أجعل الآخرين يشعرون بالارتياح.", "agreeableness"),
+  bigFiveItem("لا أهتم كثيرًا بالآخرين.", "agreeableness", true),
+  bigFiveItem("أجرح الناس بالكلام.", "agreeableness", true),
+  bigFiveItem("لا أهتم بمشكلات الآخرين.", "agreeableness", true),
+  bigFiveItem("لا أبدي اهتمامًا كبيرًا بما يعانيه الآخرون.", "agreeableness", true),
+
+  bigFiveItem("أكون مستعدًا دائمًا لما عليّ فعله.", "conscientiousness"),
+  bigFiveItem("أنتبه إلى التفاصيل.", "conscientiousness"),
+  bigFiveItem("أنجز الأعمال المطلوبة دون تأجيل طويل.", "conscientiousness"),
+  bigFiveItem("أحب النظام والترتيب.", "conscientiousness"),
+  bigFiveItem("ألتزم بجدول أو خطة.", "conscientiousness"),
+  bigFiveItem("أحرص على إتقان عملي.", "conscientiousness"),
+  bigFiveItem("أترك أغراضي مبعثرة.", "conscientiousness", true),
+  bigFiveItem("أحوّل المكان أو العمل إلى فوضى.", "conscientiousness", true),
+  bigFiveItem("أنسى كثيرًا إعادة الأشياء إلى أماكنها.", "conscientiousness", true),
+  bigFiveItem("أتهرب من مسؤولياتي.", "conscientiousness", true),
+
+  bigFiveItem("أكون هادئًا في معظم الأوقات.", "emotionalStability"),
+  bigFiveItem("نادرًا ما أشعر بالحزن أو الكآبة.", "emotionalStability"),
+  bigFiveItem("أتوتر بسهولة.", "emotionalStability", true),
+  bigFiveItem("أقلق بشأن الأمور كثيرًا.", "emotionalStability", true),
+  bigFiveItem("يسهل إزعاجي أو التأثير فيّ.", "emotionalStability", true),
+  bigFiveItem("أنفعل أو أضيق بسرعة.", "emotionalStability", true),
+  bigFiveItem("يتغير مزاجي كثيرًا.", "emotionalStability", true),
+  bigFiveItem("أمر بتقلبات مزاجية متكررة.", "emotionalStability", true),
+  bigFiveItem("أستثار أو أغضب بسهولة.", "emotionalStability", true),
+  bigFiveItem("كثيرًا ما أشعر بالحزن.", "emotionalStability", true),
+
+  bigFiveItem("أمتلك حصيلة لغوية واسعة.", "openness"),
+  bigFiveItem("لدي خيال حي وخصب.", "openness"),
+  bigFiveItem("تخطر لي أفكار جيدة ومبتكرة.", "openness"),
+  bigFiveItem("أفهم الأمور بسرعة.", "openness"),
+  bigFiveItem("أحب استخدام المفردات الدقيقة والمتنوعة.", "openness"),
+  bigFiveItem("أقضي وقتًا في التأمل والتفكير في الأفكار.", "openness"),
+  bigFiveItem("رأسي مليء بالأفكار.", "openness"),
+  bigFiveItem("أجد صعوبة في فهم الأفكار المجردة.", "openness", true),
+  bigFiveItem("لا أهتم بالأفكار النظرية أو المجردة.", "openness", true),
+  bigFiveItem("لا أمتلك خيالًا جيدًا.", "openness", true)
+];
+
 export const TESTS: FaslTest[] = [
   { id:"thinking", title:"كيف يعمل عقلك؟", description:"اختبار تفاعلي لأسلوبك الغالب في التفكير وحل المشكلات.", questions:thinking, results:generalResults },
   { id:"character", title:"أي شخصية تشبه في طريقة تفكيرك؟", description:"اكتشف النموذج الأقرب إليك من شخصيات القصص والأفلام، بناءً على اختياراتك لا على سؤال واحد.", questions:personality, results:generalResults },
   { id:"career", title:"أين يناسبك العمل؟", description:"تقييم استرشادي لميولك في بيئة العمل والأقسام التي قد تناسبك.", questions:career, results:generalResults },
   { id:"aptitude", title:"اختبار القدرات والاستدلال", description:"أسئلة قصيرة في المنطق والاستدلال العددي واللفظي. احصل على نتيجتك مع تفسير الإجابات.", questions:aptitude, results:generalResults, kind:"aptitude" },
-  { id:"workplace", title:"محاكاة مواقف العمل", description:"مواقف شائعة في بيئة العمل لقياس أسلوبك في الحكم والتعامل مع الأولويات والتعاون.", questions:workplace, results:generalResults }
+  { id:"workplace", title:"محاكاة مواقف العمل", description:"مواقف شائعة في بيئة العمل لقياس أسلوبك في الحكم والتعامل مع الأولويات والتعاون.", questions:workplace, results:generalResults },
+  { id:"big-five", title:"سمات الشخصية الخمس الكبرى | IPIP-50", description:"مقياس شخصية من 50 عبارة يستكشف خمسة أبعاد عامة للشخصية.", questions:bigFive, results:generalResults, kind:"big-five", sourceNote:"المقياس: IPIP Big-Five Factor Markers (Goldberg, 1992). البنود الأصلية من بنك IPIP المتاح للملكية العامة. هذه صياغة عربية عملنا عليها وليست النسخة العربية البحثية المنشورة، ولم تخضع بعد لتحقق مستقل من الصدق والثبات." }
 ];
 
 export function findTest(testId: string): FaslTest | undefined {
@@ -92,7 +171,12 @@ export function scoreTest(test: FaslTest, answers: number[]) {
   answers.forEach((answer, index) => {
     const option = test.questions[index]?.options[answer];
     if (!option) return;
-    for (const [axis, value] of Object.entries(option.scores) as [Axis, number][]) scores[axis] += value;
+    if (test.kind === "big-five" && question.factor) {
+      const raw = option.scores[question.factor] || 0;
+      scores[question.factor] += question.reverse ? 6 - raw : raw;
+    } else {
+      for (const [axis, value] of Object.entries(option.scores) as [Axis, number][]) scores[axis] += value;
+    }
   });
   const ranked = (Object.entries(scores) as [Axis, number][]).sort((a,b)=>b[1]-a[1]);
   const correctCount = test.questions.reduce((count, question, index) => count + (question.correctIndex !== undefined && answers[index] === question.correctIndex ? 1 : 0), 0);
@@ -106,7 +190,12 @@ export function careerDepartments(primary: Axis, secondary: Axis): string[] {
     people:["الموارد البشرية","التعليم والتدريب","خدمة العملاء والعلاقات"],
     strategy:["الإدارة والتخطيط","الاستشارات وتطوير الأعمال","إدارة المنتجات"],
     exploration:["البحث والتطوير","التقنية والتجارب","الصحافة والاستكشاف"],
-    organization:["المحاسبة وإدارة السجلات","الامتثال والتدقيق الإجرائي","تنسيق العمليات وضبط الجودة"]
+    organization:["المحاسبة وإدارة السجلات","الامتثال والتدقيق الإجرائي","تنسيق العمليات وضبط الجودة"],
+    extraversion:["العلاقات العامة والتواصل","المبيعات الاستشارية","تنسيق الفعاليات"],
+    agreeableness:["خدمة المستفيدين","التعليم والدعم","العمل المجتمعي"],
+    conscientiousness:["إدارة الجودة","تنسيق المشاريع","التوثيق والعمليات"],
+    emotionalStability:["لا يُستخدم هذا البعد منفردًا لاقتراح مهنة","تُفسّر الدرجة ضمن بقية السمات"],
+    openness:["البحث والتطوير","التصميم والابتكار","التعلم وصناعة المحتوى"]
   };
   return [...map[primary], ...map[secondary].slice(0,1)];
 }
