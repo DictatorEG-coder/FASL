@@ -131,7 +131,7 @@ export function buildStoryReview(
   const uniqueClues = [...new Map(allClues.filter(x => x.id && x.title).map(x => [x.id, x])).values()];
   const missed = uniqueClues.filter(clue => !collected.has(clue.id));
   const missedLine = missed.length
-    ? missed.slice(0, 10).map(clue => clue.title).join("، ") + (missed.length > 10 ? `، و${missed.length - 10} أدلة أخرى` : "")
+    ? missed.map((clue, index) => `${index + 1}. ${clue.title}`).join("\n")
     : "لم تترك أي دليل معروف دون جمعه.";
   const resolvedLine = state.resolvedLoops.length
     ? state.resolvedLoops.map(key => loopTitles[key] || key).join("، ")
