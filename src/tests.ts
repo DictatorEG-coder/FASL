@@ -1,8 +1,8 @@
 export type Axis = "analysis" | "creation" | "action" | "people" | "strategy" | "exploration";
 export type TestOption = { text: string; scores: Partial<Record<Axis, number>> };
-export type TestQuestion = { prompt: string; options: TestOption[] };
+export type TestQuestion = { prompt: string; options: TestOption[]; correctIndex?: number; explanation?: string };
 export type FaslTest = {
-  id: string; title: string; description: string; questions: TestQuestion[];
+  id: string; title: string; description: string; questions: TestQuestion[]; kind?: "aptitude";
   results: Record<Axis, { title: string; description: string; strengths: string; improve: string; match: string }>;
 };
 
@@ -53,10 +53,34 @@ const career: TestQuestion[] = [
   { prompt:"أي نتيجة مهنية تريد أن تُعرف بها؟", options:[{text:"خبير يعتمد عليه في التحليل",scores:{analysis:2}},{text:"صاحب أفكار وحلول مختلفة",scores:{creation:2}},{text:"شخص يحقق النتائج ويقود التنفيذ",scores:{strategy:1,action:2}},{text:"شخص يطور الناس ويحسن تجربتهم",scores:{people:2}}]}
 ];
 
+const aptitude: TestQuestion[] = [
+  {prompt:"أكمل المتتالية: 2، 6، 12، 20، 30، ؟",options:[{text:"36",scores:{}},{text:"42",scores:{}},{text:"40",scores:{}},{text:"44",scores:{}}],correctIndex:1,explanation:"الفروق هي 4 ثم 6 ثم 8 ثم 10؛ الفرق التالي 12، إذن الناتج 42."},
+  {prompt:"كل المحللين في فريق ما يتحققون من مصادرهم. ليلى محللة في هذا الفريق. ما النتيجة اللازمة؟",options:[{text:"ليلى تتحقق من مصادرها",scores:{}},{text:"ليلى تقود الفريق",scores:{}},{text:"كل من يتحقق من المصادر محلل",scores:{}},{text:"لا يمكن استنتاج شيء",scores:{}}],correctIndex:0,explanation:"هذه نتيجة مباشرة من القاعدة العامة وانطباقها على ليلى."},
+  {prompt:"منتج سعره 240 جنيهًا، خُفّض بنسبة 15%. ما السعر بعد الخصم؟",options:[{text:"196",scores:{}},{text:"204",scores:{}},{text:"210",scores:{}},{text:"216",scores:{}}],correctIndex:1,explanation:"15% من 240 تساوي 36؛ 240 ناقص 36 يساوي 204."},
+  {prompt:"اختر العلاقة الأقرب: قلم : كتابة",options:[{text:"مطرقة : مسمار",scores:{}},{text:"فرشاة : رسم",scores:{}},{text:"كتاب : مكتبة",scores:{}},{text:"باب : منزل",scores:{}}],correctIndex:1,explanation:"القلم أداة للكتابة، والفرشاة أداة للرسم."},
+  {prompt:"أكمل تسلسل الحروف: A، C، F، J، O، ؟",options:[{text:"S",scores:{}},{text:"T",scores:{}},{text:"U",scores:{}},{text:"V",scores:{}}],correctIndex:2,explanation:"القفزات تزيد: +2، +3، +4، +5، ثم +6؛ الحرف التالي U."},
+  {prompt:"في صندوق 5 كرات حمراء و3 زرقاء. ما أقل عدد تسحبه دون نظر لتضمن كرتين من اللون نفسه؟",options:[{text:"2",scores:{}},{text:"3",scores:{}},{text:"4",scores:{}},{text:"5",scores:{}}],correctIndex:1,explanation:"بمبدأ الحمام، سحبتان قد تكونان بلونين مختلفين؛ الثالثة تضمن تكرار لون."},
+  {prompt:"إذا أنجز 4 موظفين مهمة في 6 ساعات بالمعدل نفسه، فكم ساعة يحتاج 8 موظفين للمهمة نفسها؟",options:[{text:"2",scores:{}},{text:"3",scores:{}},{text:"4",scores:{}},{text:"12",scores:{}}],correctIndex:1,explanation:"إجمالي العمل 24 ساعة-موظف؛ تقسيمها على 8 موظفين يعطي 3 ساعات."},
+  {prompt:"بدأ الاجتماع قبل انتهاء التقرير. التقرير لا يمكن اعتماده قبل مراجعته. أي عبارة مؤكدة؟",options:[{text:"التقرير اعتُمد قبل الاجتماع",scores:{}},{text:"التقرير لم يُراجع أبدًا",scores:{}},{text:"لا يمكن الجزم بأن التقرير اعتُمد",scores:{}},{text:"الاجتماع أُلغي",scores:{}}],correctIndex:2,explanation:"المعطيات لا تقول إن المراجعة تمت؛ لذلك لا يمكن استنتاج الاعتماد."}
+];
+
+const workplace: TestQuestion[] = [
+  {prompt:"اكتشفت خطأً مؤثرًا قبل تسليم فريقك للعمل بدقائق. ماذا تفعل؟",options:[{text:"أبلغ المسؤول فورًا مع وصف أثر الخطأ",scores:{analysis:2,people:1}},{text:"أصلحه وحدي دون إخبار أحد",scores:{action:1}},{text:"أخفيه حتى لا يتأخر التسليم",scores:{action:1}},{text:"أجمع المعلومات وأقترح بدائل سريعة",scores:{strategy:2,analysis:1}}]},
+  {prompt:"زميل يتأخر باستمرار ويؤثر في عمل الفريق. كيف تتصرف؟",options:[{text:"أتحدث معه مباشرة وأفهم السبب",scores:{people:2}},{text:"أوثق التأخير وأناقشه مع المسؤول وفق الإجراء",scores:{analysis:1,strategy:2}},{text:"أعيد توزيع العمل مؤقتًا وأوضح أثر ذلك",scores:{action:1,strategy:2}},{text:"أتجاهل الأمر ما دامت مهمتي انتهت",scores:{action:1}}]},
+  {prompt:"تلقيت مهمة جديدة بموعد ضيق وتعليمات ناقصة. ما خطوتك الأولى؟",options:[{text:"أحدد المطلوب والنتيجة المتوقعة مع صاحب المهمة",scores:{analysis:1,people:1}},{text:"أبدأ فورًا وأفترض التفاصيل الناقصة",scores:{action:2}},{text:"أضع خطة ومخاطر ونقاط مراجعة",scores:{strategy:2}},{text:"أقترح طريقة مختلفة لتقليل الوقت",scores:{creation:2}}]},
+  {prompt:"عميل غاضب بسبب مشكلة لم تتسبب فيها. كيف تستجيب؟",options:[{text:"أستمع وألخص المشكلة ثم أوضح الخطوات",scores:{people:2}},{text:"أشرح له أن الخطأ ليس مني",scores:{analysis:1}},{text:"أعده بحل فوري قبل التحقق",scores:{action:1}},{text:"أبحث عن السبب الجذري وأمنع تكراره",scores:{analysis:2,strategy:1}}]},
+  {prompt:"اختلفت مع مديرك حول قرار تعتقد أنه يحمل مخاطرة. ماذا تفعل؟",options:[{text:"أعرض الأدلة والبدائل باحترام",scores:{analysis:2,people:1}},{text:"أنفذ دون نقاش مهما كانت المخاطر",scores:{action:1}},{text:"أطلب توضيح معيار القرار وأثره المتوقع",scores:{strategy:2}},{text:"أبحث عن تجربة صغيرة تختبر الفكرة",scores:{creation:1,exploration:2}}]},
+  {prompt:"لديك ثلاث مهام عاجلة ولا يمكن إنجازها كلها في الوقت المتاح. كيف تختار؟",options:[{text:"أرتبها حسب الأثر والموعد والمخاطر",scores:{strategy:2,analysis:1}},{text:"أبدأ بالأقصر لإنهاء شيء بسرعة",scores:{action:1}},{text:"أطلب من الفريق توزيع المهام",scores:{people:2,strategy:1}},{text:"أبحث عن طريقة آلية تختصر الوقت",scores:{creation:1,exploration:1}}]},
+  {prompt:"أخطأت في قرار اتخذته أمام الفريق. ما التصرف الأنسب؟",options:[{text:"أعترف بالخطأ وأوضح خطة التصحيح",scores:{people:1,action:1,analysis:1}},{text:"أنتظر حتى يكتشفه أحد",scores:{action:1}},{text:"أراجع سبب الخطأ وأحدث طريقة العمل",scores:{analysis:2,strategy:1}},{text:"أحمّل الظروف مسؤولية النتيجة",scores:{action:1}}]},
+  {prompt:"اقترح زميل فكرة جيدة لكنها تحتاج اختبارًا قبل اعتمادها. ماذا تفعل؟",options:[{text:"أصمم تجربة محدودة بمقياس نجاح واضح",scores:{exploration:1,analysis:1,creation:1}},{text:"أعتمدها فورًا لأنها تبدو واعدة",scores:{action:1}},{text:"أرفضها لأنها لم تُستخدم سابقًا",scores:{analysis:1}},{text:"أجمع أصحاب العلاقة لتقييم أثرها",scores:{people:2,strategy:1}}]}
+];
+
 export const TESTS: FaslTest[] = [
   { id:"thinking", title:"كيف يعمل عقلك؟", description:"اختبار تفاعلي لأسلوبك الغالب في التفكير وحل المشكلات.", questions:thinking, results:generalResults },
   { id:"character", title:"أي شخصية تشبه في طريقة تفكيرك؟", description:"اكتشف النموذج الأقرب إليك من شخصيات القصص والأفلام، بناءً على اختياراتك لا على سؤال واحد.", questions:personality, results:generalResults },
-  { id:"career", title:"أين يناسبك العمل؟", description:"تقييم استرشادي لميولك في بيئة العمل والأقسام التي قد تناسبك.", questions:career, results:generalResults }
+  { id:"career", title:"أين يناسبك العمل؟", description:"تقييم استرشادي لميولك في بيئة العمل والأقسام التي قد تناسبك.", questions:career, results:generalResults },
+  { id:"aptitude", title:"اختبار القدرات والاستدلال", description:"أسئلة قصيرة في المنطق والاستدلال العددي واللفظي. احصل على نتيجتك مع تفسير الإجابات.", questions:aptitude, results:generalResults, kind:"aptitude" },
+  { id:"workplace", title:"محاكاة مواقف العمل", description:"مواقف شائعة في بيئة العمل لقياس أسلوبك في الحكم والتعامل مع الأولويات والتعاون.", questions:workplace, results:generalResults }
 ];
 
 export function findTest(testId: string): FaslTest | undefined {
@@ -70,7 +94,8 @@ export function scoreTest(test: FaslTest, answers: number[]) {
     for (const [axis, value] of Object.entries(option.scores) as [Axis, number][]) scores[axis] += value;
   });
   const ranked = (Object.entries(scores) as [Axis, number][]).sort((a,b)=>b[1]-a[1]);
-  return { scores, primary: ranked[0][0], secondary: ranked[1][0] };
+  const correctCount = test.questions.reduce((count, question, index) => count + (question.correctIndex !== undefined && answers[index] === question.correctIndex ? 1 : 0), 0);
+  return { scores, primary: ranked[0][0], secondary: ranked[1][0], correctCount, accuracy: test.questions.some(question => question.correctIndex !== undefined) ? Math.round(correctCount / test.questions.filter(question => question.correctIndex !== undefined).length * 100) : null };
 }
 export function careerDepartments(primary: Axis, secondary: Axis): string[] {
   const map: Record<Axis,string[]> = {
