@@ -25,8 +25,10 @@ for (const story of stories) {
   const validCategories = new Set(["investigation", "horror_mystery", "mystery", "adventure", "survival", "historical", "science_fiction", "literary"]);
   if (!validCategories.has(story.category)) errors.push(`${story.id}: invalid story category "${story.category}"`);
   const scenes = story.scenes || {};
+  const totalScenes = Object.keys(scenes).length;
   const totalChoices = Object.values(scenes).reduce((sum, scene) => sum + (scene.choices || []).length, 0);
   const endingPaths = Object.values(scenes).filter(scene => scene.ending).length + (story.caseFile?.endings?.length || 0) + (story.caseFile?.defaultEnding ? 1 : 0);
+  if (totalScenes < 18) errors.push(`${story.id}: story is too short (${totalScenes} scenes; minimum 18)`);
   if (totalChoices < 18) errors.push(`${story.id}: too few meaningful choices (${totalChoices}; minimum 18)`);
   if (endingPaths < 2) errors.push(`${story.id}: needs at least two ending paths`);
   const loopIds = new Set(Object.keys(story.loopTitles || {}));
