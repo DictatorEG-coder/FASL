@@ -111,7 +111,8 @@ async function renderTestQuestion(env:Env,sessionId:string,session:TestSession){
   const test=findTest(session.testId);if(!test)return;
   const question=test.questions[session.questionIndex];if(!question)return;
   const keyboard=question.options.map((option,index)=>[{text:option.text,callback_data:"test:answer:"+sessionId+":"+session.questionIndex+":"+index}]);
-  const sourceLine=session.questionIndex===0&&test.sourceNote?"\n\n<blockquote>"+escapeHtml(test.sourceNote)+"</blockquote>":"";\n  await send(env,session.chatId,"<b>"+escapeHtml(test.title)+"</b>\nالسؤال "+(session.questionIndex+1)+" من "+test.questions.length+"\n\n"+escapeHtml(question.prompt)+sourceLine,{inline_keyboard:keyboard});
+  const sourceLine=session.questionIndex===0&&test.sourceNote?"\n\n<blockquote>"+escapeHtml(test.sourceNote)+"</blockquote>":"";
+  await send(env,session.chatId,"<b>"+escapeHtml(test.title)+"</b>\nالسؤال "+(session.questionIndex+1)+" من "+test.questions.length+"\n\n"+escapeHtml(question.prompt)+sourceLine,{inline_keyboard:keyboard});
 }
 async function finishTest(env:Env,sessionId:string,session:TestSession){
   const test=findTest(session.testId);if(!test)return;
