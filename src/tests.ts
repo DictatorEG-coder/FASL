@@ -1,4 +1,4 @@
-export type Axis = "analysis" | "creation" | "action" | "people" | "strategy" | "exploration";
+export type Axis = "analysis" | "creation" | "action" | "people" | "strategy" | "exploration" | "organization";
 export type TestOption = { text: string; scores: Partial<Record<Axis, number>> };
 export type TestQuestion = { prompt: string; options: TestOption[]; correctIndex?: number; explanation?: string };
 export type FaslTest = {
@@ -12,7 +12,7 @@ const generalResults: FaslTest["results"] = {
   action: { title: "المنفّذ", description: "تفضّل تحويل الكلام إلى تجربة ونتيجة. تتعلم من الحركة والتطبيق أكثر من الانتظار الطويل.", strengths: "الحسم، المبادرة، التعامل العملي، والإنجاز.", improve: "امنح نفسك لحظة للتحقق من المخاطر قبل القفز إلى التنفيذ.", match: "العمليات، إدارة المشاريع، التشغيل، الهندسة التطبيقية، واللوجستيات." },
   people: { title: "المتواصل", description: "تقرأ أثر القرارات على الناس، وتنتبه إلى ما لا يُقال بقدر انتباهك إلى الكلمات.", strengths: "الاستماع، التعاون، فهم وجهات النظر، وبناء الثقة.", improve: "لا تتحمل مسؤولية مشاعر الجميع على حساب حدودك وأولوياتك.", match: "الموارد البشرية، التعليم، خدمة العملاء، العلاقات، والعمل الجماعي." },
   strategy: { title: "الاستراتيجي", description: "تنظر إلى الصورة الكبيرة وتفكر في العواقب والخطوات التالية. يهمك أن يكون للقرار اتجاه واضح.", strengths: "ترتيب الأولويات، توقع النتائج، التنظيم، ورؤية الأنماط.", improve: "اترك مساحة للتغيير عندما تظهر معلومات جديدة، ولا تتمسك بالخطة لمجرد أنها خطتك.", match: "الإدارة، الاستراتيجية، قيادة الفرق، الاستشارات، وتطوير الأعمال." },
-  exploration: { title: "المستكشف", description: "تنجذب إلى المجهول والتجارب الجديدة، وتتعلم بالملاحظة والسؤال وتجربة طرق مختلفة.", strengths: "الفضول، سرعة التعلم، التكيف، والانفتاح على التجربة.", improve: "اختر ما يستحق الاستمرار؛ ليس كل جديد فرصة يجب ملاحقتها.", match: "البحث والتطوير، الاستكشاف، التقنية، الصحافة، والتعلم المستمر." }
+  exploration: { title: "المستكشف", description: "تنجذب إلى المجهول والتجارب الجديدة، وتتعلم بالملاحظة والسؤال وتجربة طرق مختلفة.", strengths: "الفضول، سرعة التعلم، التكيف، والانفتاح على التجربة.", improve: "اختر ما يستحق الاستمرار؛ ليس كل جديد فرصة يجب ملاحقتها.", match: "البحث والتطوير، الاستكشاف، التقنية، الصحافة، والتعلم المستمر." },\n  organization: { title: "المنظّم", description: "ترتاح إلى وضوح الإجراءات وترتيب المعلومات ومتابعة التفاصيل حتى تكتمل المهمة.", strengths: "الانضباط، التوثيق، الاتساق، وإدارة التفاصيل.", improve: "لا تجعل الالتزام بالإجراء يمنعك من اقتراح تحسينه عندما لا يعود مناسبًا.", match: "المحاسبة، إدارة العمليات، الامتثال، إدارة السجلات، وضبط الجودة." }
 };
 
 const qs = (items: [string, [string, Axis][], [string, Axis][], [string, Axis][]]): TestQuestion[] =>
@@ -87,7 +87,7 @@ export function findTest(testId: string): FaslTest | undefined {
   return TESTS.find(test => test.id === testId);
 }
 export function scoreTest(test: FaslTest, answers: number[]) {
-  const scores: Record<Axis, number> = { analysis:0, creation:0, action:0, people:0, strategy:0, exploration:0 };
+  const scores: Record<Axis, number> = { analysis:0, creation:0, action:0, people:0, strategy:0, exploration:0, organization:0 };
   answers.forEach((answer, index) => {
     const option = test.questions[index]?.options[answer];
     if (!option) return;
@@ -104,7 +104,7 @@ export function careerDepartments(primary: Axis, secondary: Axis): string[] {
     action:["العمليات والتشغيل","إدارة المشاريع","الهندسة والتنفيذ"],
     people:["الموارد البشرية","التعليم والتدريب","خدمة العملاء والعلاقات"],
     strategy:["الإدارة والتخطيط","الاستشارات وتطوير الأعمال","إدارة المنتجات"],
-    exploration:["البحث والتطوير","التقنية والتجارب","الصحافة والاستكشاف"]
+    exploration:["البحث والتطوير","التقنية والتجارب","الصحافة والاستكشاف"],\n    organization:["المحاسبة وإدارة السجلات","الامتثال والتدقيق الإجرائي","تنسيق العمليات وضبط الجودة"]
   };
   return [...map[primary], ...map[secondary].slice(0,1)];
 }
