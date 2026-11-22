@@ -124,11 +124,11 @@ async function finishTest(env:Env,sessionId:string,session:TestSession){
     return;
   }
   const departments=session.testId==="career"?careerDepartments(result.primary,result.secondary):[];
-  const characterNames:Record<string,string>={analysis:"شيرلوك هولمز",creation:"توني ستارك",action:"لارا كروفت",people:"هيرميون غرينجر",strategy:"باتمان",exploration:"إنديانا جونز"};
+  const characterNames:Record<string,string>={analysis:"شيرلوك هولمز",creation:"توني ستارك",action:"لارا كروفت",people:"هيرميون غرينجر",strategy:"باتمان",exploration:"إنديانا جونز",organization:"كابتن أمريكا"};
   const title=session.testId==="character"?"أقرب نموذج خيالي إليك: "+characterNames[result.primary]:primary.title;
   const scoreLines=(Object.entries(result.scores) as [string,number][]).sort((x,y)=>y[1]-x[1]).map(([axis,value])=>test.results[axis as keyof typeof test.results].title+": "+value).join("\n");
   const extra=session.testId==="career"
-    ? "\n\n<b>مجالات قد تناسب ميولك:</b>\n"+departments.map(x=>"• "+escapeHtml(x)).join("\n")+"\n\nهذه اقتراحات استكشافية وليست حكمًا على أهليتك لوظيفة."
+    ? "\n\n<b>مجالات قد تناسب ميولك:</b>\n"+departments.map(x=>"• "+escapeHtml(x)).join("\n")+"\n\nهذه اقتراحات استكشافية مستوحاة من أطر الاهتمامات المهنية، وليست اختبار RIASEC معياريًا أو حكمًا على أهليتك لوظيفة."
     : session.testId==="character"
       ? "\n\nالتشابه هنا في أسلوب التفكير والصفات التي ظهرت من إجاباتك، وليس تطابقًا حرفيًا مع الشخصية."
       : "\n\n<b>مجال ثانوي ظاهر في إجاباتك:</b> "+escapeHtml(secondary.title)+" — "+escapeHtml(secondary.description);
