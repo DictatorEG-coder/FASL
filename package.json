@@ -8,7 +8,7 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "validate:stories": "node scripts/validate-stories.mjs",
-    "test": "npm run typecheck && npm run validate:stories && node scripts/test-story-engine.mjs"
+    "test": "npm run typecheck && npm run validate:stories && node scripts/test-story-engine.mjs && node scripts/validate-assessments.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261119.1",
