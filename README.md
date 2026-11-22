@@ -68,8 +68,10 @@ npm run dev
 
 ## بنية الملفات
 - `src/index.ts`: webhook، أوامر Telegram، جلسات القصص والاختبارات، التصويت، cron.
-- `src/stories.ts`: تسجيل القصص الأساسية.\n- `src/extra-stories.ts`: القصص الإضافية المتفرعة.
-- `schema.sql`: جداول D1 والفهارس.\n- `scripts/validate-assessments.mjs`: فحص محتوى الاختبارات ونتائجها.
+- `src/stories.ts`: تسجيل القصص الأساسية.
+- `src/extra-stories.ts`: القصص الإضافية المتفرعة.
+- `schema.sql`: جداول D1 والفهارس.
+- `scripts/validate-assessments.mjs`: فحص محتوى الاختبارات ونتائجها.
 - `wrangler.toml`: إعدادات Worker وD1 وCron.
 
 
