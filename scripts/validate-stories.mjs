@@ -18,6 +18,7 @@ const errors = [];
 const storyIds = new Set();
 
 for (const story of stories) {
+  if (!story.category) errors.push(`${story.id}: missing story category`);
   if (storyIds.has(story.id)) errors.push(`Duplicate story id: ${story.id}`);
   storyIds.add(story.id);
 
@@ -106,4 +107,14 @@ if (errors.length) {
   process.exitCode = 1;
 } else {
   console.log(`Validated ${stories.length} stories and all reachable scene links.`);
+}
+
+const road = stories.find(story => story.id === "the-road-that-vanishes");
+if (road) {
+  const memoryChoice = road.scenes.b4?.choices?.some(choice => choice.next === "b8" && choice.effects?.remember?.some(memory => memory.eventId === "protected-younis"));
+  if (!memoryChoice) errors.push("the-road-that-vanishes: Younis choice must record memory");
+  if (!road.scenes.b8?.memoryReactions?.some(reaction => reaction.requires?.includes("protected-younis"))) errors.push("the-road-that-vanishes: Salma reaction must appear at b8");
+  if ((road.scenes.b8?.resolves || []).includes("passenger-memories")) errors.push("the-road-that-vanishes: passenger-memories resolves too early");
+  if (!(road.scenes.b13?.resolves || []).includes("passenger-memories") && !(road.scenes.b18?.resolves || []).includes("passenger-memories")) errors.push("the-road-that-vanishes: passenger-memories needs later resolution");
+  if (!road.scenes.b8?.choices?.some(choice => choice.effects?.time) || !road.scenes.b8?.choices?.some(choice => choice.effects?.trust)) errors.push("the-road-that-vanishes: Younis path choices need time and trust effects");
 }
