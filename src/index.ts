@@ -124,7 +124,7 @@ async function finishTest(env:Env,sessionId:string,session:TestSession){
     return;
   }
   const departments=session.testId==="career"?careerDepartments(result.primary,result.secondary):[];
-  const characterNames:Record<string,string>={analysis:"شيرلوك هولمز",creation:"توني ستارك",action:"لارا كروفت",people:"هيرميون غرينجر",strategy:"مايكل كورليوني",exploration:"إنديانا جونز"};
+  const characterNames:Record<string,string>={analysis:"شيرلوك هولمز",creation:"توني ستارك",action:"لارا كروفت",people:"هيرميون غرينجر",strategy:"باتمان",exploration:"إنديانا جونز"};
   const title=session.testId==="character"?"أقرب نموذج خيالي إليك: "+characterNames[result.primary]:primary.title;
   const scoreLines=(Object.entries(result.scores) as [string,number][]).sort((x,y)=>y[1]-x[1]).map(([axis,value])=>test.results[axis as keyof typeof test.results].title+": "+value).join("\n");
   const extra=session.testId==="career"
