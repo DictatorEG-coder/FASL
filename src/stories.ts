@@ -1,4 +1,5 @@
-;
+import type { StateCondition, StateEffect } from "./story-engine";
+export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[]; effects?: StateEffect; conditions?: StateCondition };
 
 export type Clue = { id: string; title: string; detail: string };
 export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieText?: string; tieNext?: string; clue?: Clue; opens?: string[]; resolves?: string[]; memoryReactions?: { requires: string[]; text: string }[] };
