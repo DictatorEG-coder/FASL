@@ -22,7 +22,13 @@ for (const story of stories) {
   if (storyIds.has(story.id)) errors.push(`Duplicate story id: ${story.id}`);
   storyIds.add(story.id);
 
+  const validCategories = new Set(["investigation", "horror_mystery", "mystery", "adventure", "survival", "historical", "science_fiction", "literary"]);
+  if (!validCategories.has(story.category)) errors.push(`${story.id}: invalid story category "${story.category}"`);
   const scenes = story.scenes || {};
+  const totalChoices = Object.values(scenes).reduce((sum, scene) => sum + (scene.choices || []).length, 0);
+  const endingPaths = Object.values(scenes).filter(scene => scene.ending).length + (story.caseFile?.endings?.length || 0) + (story.caseFile?.defaultEnding ? 1 : 0);
+  if (totalChoices < 18) errors.push(`${story.id}: too few meaningful choices (${totalChoices}; minimum 18)`);
+  if (endingPaths < 2) errors.push(`${story.id}: needs at least two ending paths`);
   const loopIds = new Set(Object.keys(story.loopTitles || {}));
   if (!scenes[story.start]) {
     errors.push(`${story.id}: start scene "${story.start}" does not exist`);
