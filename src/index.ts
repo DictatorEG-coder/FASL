@@ -97,11 +97,23 @@ async function recordUser(env:Env,m:TgMessage){
   if(m.from) await env.DB.prepare("INSERT INTO users(telegram_id,first_name,username) VALUES(?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET first_name=excluded.first_name,username=excluded.username,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.from.id),m.from.first_name||"",m.from.username||null).run();
   await env.DB.prepare("INSERT INTO chats(chat_id,chat_type,title) VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.chat.id),m.chat.type,m.chat.title||null).run();
 }
-async function listStories(env:Env,chatId:string){
-  const rows=await env.DB.prepare("SELECT story_id,title,description,genre,estimated_minutes FROM stories WHERE active=1 ORDER BY created_at").all<{story_id:string;title:string;description:string;genre:string;estimated_minutes:number}>();
-  const keyboard=rows.results.map(s=>[{text:`${s.title} · ${s.estimated_minutes} د`,callback_data:`play:${s.story_id}`}]);
-  if(!keyboard.length){await send(env,chatId,"لا توجد قصص متاحة حاليًا.");return;}
-  await send(env,chatId,"<b>مكتبة فَصْل</b>\nاختر قصة لبدء التجربة:",{inline_keyboard:keyboard});
+const STORY_CATEGORY_LABELS:Record<string,string>={investigation:"🕵️ التحقيق في القضايا",horror_mystery:"👁️ الرعب والغموض",mystery:"🧩 الغموض والتشويق",adventure:"🧭 المغامرات والاستكشاف",survival:"🏕️ النجاة والكوارث",historical:"📜 القصص الواقعية والتاريخية",science_fiction:"🚀 الخيال العلمي والدراما"};
+async function listStories(env:Env,chatId:string,category?:string){
+  const rows=await env.DB.prepare("SELECT story_id,title,description,genre,estimated_minutes,content_json FROM stories WHERE active=1 ORDER BY created_at").all<{story_id:string;title:string;description:string;genre:string;estimated_minutes:number;content_json:string}>();
+  const active=rows.results.map(row=>({row,story:parse<Story>(row.content_json)}));
+  if(!category){
+    const counts=new Map<string,number>();
+    for(const item of active){const key=item.story.category||"mystery";counts.set(key,(counts.get(key)||0)+1);}
+    const keyboard=Object.entries(STORY_CATEGORY_LABELS).filter(([key])=>(counts.get(key)||0)>0).map(([key,label])=>[{text:`${label} · ${counts.get(key)}`,callback_data:`cat:${key}`}]);
+    if(!keyboard.length){await send(env,chatId,"لا توجد قصص متاحة حاليًا.");return;}
+    await send(env,chatId,"<b>مكتبة فَصْل</b>\nاختر القسم الذي يناسبك:",{inline_keyboard:keyboard});return;
+  }
+  const selected=active.filter(item=>category==="all"||item.story.category===category);
+  const keyboard=selected.map(({row})=>[{text:`${row.title} · ${row.estimated_minutes} د`,callback_data:`play:${row.story_id}`}]);
+  keyboard.push([{text:"↩️ أقسام المكتبة",callback_data:"cat:menu"}]);
+  const label=STORY_CATEGORY_LABELS[category]||"كل القصص";
+  if(!selected.length){await send(env,chatId,"لا توجد قصص منشورة في هذا القسم حاليًا.");return;}
+  await send(env,chatId,`<b>${escapeHtml(label)}</b>\nاختر قصة لبدء التجربة:`,{inline_keyboard:keyboard});
 }
 async function closePollIfOpen(env:Env,s:Session){
   if(s.mode!=="group"||!s.poll_id||!s.poll_message_id)return;
@@ -167,8 +179,8 @@ async function onMessage(env:Env,m:TgMessage){
   const chatId=String(m.chat.id),userId=String(m.from?.id||"");
   const text=(m.text||"").trim();
   const command=(text.split(/\s+/,1)[0]||"").split("@")[0];
-  if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قصة أو /help للمساعدة.");return;}
-  if(command==="/help"){await send(env,chatId,"/stories — مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
+  if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قسمك ثم قصتك، أو /help للمساعدة.");return;}
+  if(command==="/help"){await send(env,chatId,"/stories — أقسام مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
   if(command==="/stories"){await listStories(env,chatId);return;}
   if(command==="/stop"){const s=await getSession(env.DB,chatId);if(s){await closePollIfOpen(env,s);await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
   if(command==="/broadcast"){
@@ -197,6 +209,7 @@ async function onMessage(env:Env,m:TgMessage){
 async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
   await tg(env,"answerCallbackQuery",{callback_query_id:q.id});
   const data=q.data||"",chatId=String(q.message?.chat.id||q.from.id),userId=String(q.from.id);
+  if(data.startsWith("cat:")){const category=data.slice(4);await listStories(env,chatId,category==="menu"?undefined:category);return;}
   if(data.startsWith("play:")){
     const storyId=data.slice(5),mode=q.message?.chat.type==="private"?"private":"group";
     if(mode==="group"&&!isAdmin(env,userId)){await send(env,chatId,"بدء القصص في المجموعة متاح للمشرفين فقط.");return;}
