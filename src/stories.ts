@@ -1,4 +1,5 @@
 import type { StateCondition, StateEffect } from "./story-engine";
+import { EXTRA_STORIES } from "./extra-stories";
 export type Choice = { text: string; next: string; image?: string; suspectId?: string; requires?: string[]; excludes?: string[]; grants?: Clue[]; effects?: StateEffect; conditions?: StateCondition };
 
 export type Clue = { id: string; title: string; detail: string };
@@ -2786,3 +2787,5 @@ export const STORIES: Story[] = [
   },
 
 ];
+
+STORIES.push(...EXTRA_STORIES);
