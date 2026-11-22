@@ -3247,8 +3247,6 @@ export const STORIES: Story[] = [
       }
     }
   },
-
-,
   {
     "id": "dyatlov-file-1959",
     "category": "historical",
