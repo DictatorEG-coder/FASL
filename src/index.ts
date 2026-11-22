@@ -117,9 +117,9 @@ async function finishTest(env:Env,sessionId:string,session:TestSession){
   const test=findTest(session.testId);if(!test)return;
   const result=scoreTest(test,session.answers),primary=test.results[result.primary],secondary=test.results[result.secondary];
   if(test.kind==="aptitude"){
-    const detail=test.questions.map((question,index)=>"<b>"+(index+1)+". "+escapeHtml(question.prompt)+"</b>\\n"+(session.answers[index]===question.correctIndex?"<b>إجابة صحيحة.</b> ":"<b>الإجابة الصحيحة: "+escapeHtml(question.options[question.correctIndex!].text)+".</b> ")+escapeHtml(question.explanation||"")).join("\\n\\n");
+    const detail=test.questions.map((question,index)=>"<b>"+(index+1)+". "+escapeHtml(question.prompt)+"</b>\n"+(session.answers[index]===question.correctIndex?"<b>إجابة صحيحة.</b> ":"<b>الإجابة الصحيحة: "+escapeHtml(question.options[question.correctIndex!].text)+".</b> ")+escapeHtml(question.explanation||"")).join("\n\n");
     const band=result.accuracy!>=80?"قوي جدًا":result.accuracy!>=60?"جيد":result.accuracy!>=40?"متوسط ويستفيد من التدريب":"يحتاج إلى تدريب وممارسة";
-    await send(env,session.chatId,"<b>نتيجة اختبار القدرات والاستدلال</b>\\n\\n<b>"+result.correctCount+" من "+test.questions.length+"</b> — دقة "+result.accuracy+"%\\nمستواك في هذه الجولة: <b>"+band+"</b>\\n\\n"+detail+"\\n\\n<i>هذا اختبار قصير غير معياري؛ النتيجة لا تعادل اختبار ذكاء أو تقييم توظيف رسميًا.</i>",{inline_keyboard:[[{text:"🔁 أعد الاختبار",callback_data:"test:start:"+test.id}],[{text:"🧠 اختبارات أخرى",callback_data:"tests:menu"}]]});
+    await send(env,session.chatId,"<b>نتيجة اختبار القدرات والاستدلال</b>\n\n<b>"+result.correctCount+" من "+test.questions.length+"</b> — دقة "+result.accuracy+"%\nمستواك في هذه الجولة: <b>"+band+"</b>\n\n"+detail+"\n\n<i>هذا اختبار قصير غير معياري؛ النتيجة لا تعادل اختبار ذكاء أو تقييم توظيف رسميًا.</i>",{inline_keyboard:[[{text:"🔁 أعد الاختبار",callback_data:"test:start:"+test.id}],[{text:"🧠 اختبارات أخرى",callback_data:"tests:menu"}]]});
     await env.DB.prepare("DELETE FROM settings WHERE key=?").bind("test-session:"+sessionId).run();
     return;
   }
