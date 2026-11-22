@@ -115,7 +115,8 @@ async function listStories(env:Env,chatId:string,category?:string){
   keyboard.push([{text:"↩️ أقسام المكتبة",callback_data:"cat:menu"}]);
   const label=STORY_CATEGORY_LABELS[category]||"كل القصص";
   if(!selected.length){await send(env,chatId,"لا توجد قصص منشورة في هذا القسم حاليًا.");return;}
-  await send(env,chatId,`<b>${escapeHtml(label)}</b>\nاختر قصة لبدء التجربة:`,{inline_keyboard:keyboard});
+  const summaries=selected.map(({row})=>`<b>${escapeHtml(row.title)}</b>\n${escapeHtml(row.description)}`).join("\n\n");
+  await send(env,chatId,`<b>${escapeHtml(label)}</b>\n\n${summaries}\n\nاختر القصة من الأزرار:`,{inline_keyboard:keyboard});
 }
 async function closePollIfOpen(env:Env,s:Session){
   if(s.mode!=="group"||!s.poll_id||!s.poll_message_id)return;
