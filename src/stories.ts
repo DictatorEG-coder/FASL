@@ -7,7 +7,7 @@ export type InterrogationQuestion = { prompt: string; answer: string; requiresCl
 export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
 export type CaseEnding = { id: string; title: string; requiredClues: string[]; requiredInterrogations: string[]; text: string };
 export type StoryCategory = "investigation" | "horror_mystery" | "mystery" | "adventure" | "survival" | "historical" | "science_fiction";
-export type Story = { id: string; category: StoryCategory; title: string; description: string; genre: string; minutes: number; timeLimit?: number; loopTitles?: Record<string, string>; memoryEvents?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
+export type Story = { id: string; category: StoryCategory; title: string; description: string; genre: string; minutes: number; sourceNote?: string; sourceReferences?: { title: string; url: string }[]; timeLimit?: number; loopTitles?: Record<string, string>; memoryEvents?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
