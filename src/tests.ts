@@ -143,7 +143,7 @@ const bigFive: TestQuestion[] = [
   bigFiveItem("لدي خيال حي وخصب.", "openness"),
   bigFiveItem("تخطر لي أفكار جيدة ومبتكرة.", "openness"),
   bigFiveItem("أفهم الأمور بسرعة.", "openness"),
-  bigFiveItem("أحب استخدام المفردات الدقيقة والمتنوعة.", "openness"),
+  bigFiveItem("أميل إلى استخدام كلمات صعبة أو غير مألوفة.", "openness"),
   bigFiveItem("أقضي وقتًا في التأمل والتفكير في الأفكار.", "openness"),
   bigFiveItem("رأسي مليء بالأفكار.", "openness"),
   bigFiveItem("أجد صعوبة في فهم الأفكار المجردة.", "openness", true),
