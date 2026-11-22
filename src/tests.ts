@@ -157,7 +157,7 @@ export const TESTS: FaslTest[] = [
   { id:"career", title:"أين يناسبك العمل؟", description:"تقييم استرشادي لميولك في بيئة العمل والأقسام التي قد تناسبك.", questions:career, results:generalResults },
   { id:"aptitude", title:"اختبار القدرات والاستدلال", description:"أسئلة قصيرة في المنطق والاستدلال العددي واللفظي. احصل على نتيجتك مع تفسير الإجابات.", questions:aptitude, results:generalResults, kind:"aptitude" },
   { id:"workplace", title:"محاكاة مواقف العمل", description:"مواقف شائعة في بيئة العمل لقياس أسلوبك في الحكم والتعامل مع الأولويات والتعاون.", questions:workplace, results:generalResults },
-  { id:"big-five", title:"سمات الشخصية الخمس الكبرى | IPIP-50", description:"مقياس شخصية من 50 عبارة يستكشف خمسة أبعاد عامة للشخصية.", questions:bigFive, results:generalResults, kind:"big-five", sourceNote:"المقياس: IPIP Big-Five Factor Markers (Goldberg, 1992). البنود الأصلية من بنك IPIP المتاح للملكية العامة. هذه صياغة عربية عملنا عليها وليست النسخة العربية البحثية المنشورة، ولم تخضع بعد لتحقق مستقل من الصدق والثبات." }
+  { id:"big-five", title:"مقياس السمات الخمس الكبرى | IPIP (50 بندًا)", description:"مقياس للبالغين من 50 عبارة يستكشف خمسة أبعاد عامة للشخصية.", questions:bigFive, results:generalResults, kind:"big-five", sourceNote:"المقياس: IPIP Big-Five Factor Markers (Goldberg, 1992). البنود الأصلية من بنك IPIP المتاح للملكية العامة. هذا المقياس موجّه للبالغين. هذه صياغة عربية عملنا عليها وليست النسخة العربية البحثية المنشورة، ولم تخضع بعد لتحقق مستقل من الصدق والثبات." }
 ];
 
 export function findTest(testId: string): FaslTest | undefined {
