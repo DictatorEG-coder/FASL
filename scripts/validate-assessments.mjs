@@ -40,6 +40,14 @@ for (const test of TESTS) {
     assert.ok(test.questions.some(q => q.reverse), "IPIP inventory must include reverse-keyed items");
     for (const axis of expected) assert.ok(result.scores[axis] >= 10 && result.scores[axis] <= 50, "Reverse scoring out of range for " + axis);
     assert.ok(test.sourceNote && test.sourceNote.includes("Goldberg"), "IPIP source and translation caveat must be documented");
+    const lowest = scoreTest(test, Array(50).fill(0));
+    const highest = scoreTest(test, Array(50).fill(4));
+    const expectedLowest = { extraversion:30, agreeableness:26, conscientiousness:26, emotionalStability:42, openness:22 };
+    const expectedHighest = { extraversion:30, agreeableness:34, conscientiousness:34, emotionalStability:18, openness:38 };
+    for (const axis of expected) {
+      assert.equal(lowest.scores[axis], expectedLowest[axis], "Incorrect reverse-keyed low-end score for " + axis);
+      assert.equal(highest.scores[axis], expectedHighest[axis], "Incorrect reverse-keyed high-end score for " + axis);
+    }
   }
 }
 assert.ok(careerDepartments("analysis", "people").length >= 3, "Career test should recommend several departments");
