@@ -90,5 +90,9 @@ assert.match(review, /الرسالة المخفية/);
 assert.doesNotMatch(review, /خريطة الطريق/);
 assert.match(review, /من أضاء المصباح؟/);
 assert.match(review, /هل وصل النداء؟/);
+const manyClues = Array.from({length: 15}, (_, i) => ({id: `miss-${i}`, title: `دليل فائت ${i + 1}`}));
+const completeReview = buildStoryReview(createStoryState(10), manyClues, []);
+assert.match(completeReview, /دليل فائت 15/);
+assert.doesNotMatch(completeReview, /أدلة أخرى/);
 
 console.log("Story engine tests passed: time, trust, flags, open loops, and conditional choices.");
