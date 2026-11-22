@@ -1,4 +1,5 @@
 import { STORIES, type Story, type Scene } from "./stories";
+import { TESTS, findTest, scoreTest, careerDepartments } from "./tests";
 import { createStoryState, applyEffects, stateSummary, buildStoryReview, availableByState, type StoryState } from "./story-engine";
 
 interface Env {
@@ -14,6 +15,7 @@ interface Env {
 type TgMessage = { message_id:number; chat:{id:number;type:string;title?:string}; from?:{id:number;first_name?:string;username?:string}; text?:string };
 type TgUpdate = { update_id:number; message?:TgMessage; callback_query?:{id:string;from:{id:number;first_name?:string;username?:string};message?:TgMessage;data?:string}; poll?:{id:string;is_closed:boolean;options:{text:string;voter_count:number}[]}; my_chat_member?:unknown };
 type Session = {session_id:string;chat_id:string;user_id:string;story_id:string;scene_id:string;status:string;mode:"private"|"group";poll_id:string|null;poll_message_id?:number|null;pending_poll_scene:string|null;poll_due_at:number|null};
+type TestSession = { testId:string; chatId:string; userId:string; questionIndex:number; answers:number[] };
 const json = (v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 const now = ()=>Math.floor(Date.now()/1000);
 const id = ()=>crypto.randomUUID();
@@ -100,6 +102,33 @@ async function recordUser(env:Env,m:TgMessage){
   await env.DB.prepare("INSERT INTO chats(chat_id,chat_type,title) VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.chat.id),m.chat.type,m.chat.title||null).run();
 }
 const STORY_CATEGORY_LABELS:Record<string,string>={investigation:"🕵️ التحقيق في القضايا",horror_mystery:"👁️ الرعب والغموض",mystery:"🧩 الغموض والتشويق",adventure:"🧭 المغامرات والاستكشاف",survival:"🏕️ النجاة والكوارث",historical:"📜 القصص الواقعية والتاريخية",literary:"📚 الأدب والروايات",science_fiction:"🚀 الخيال العلمي والدراما"};
+async function showTestsMenu(env:Env,chatId:string){
+  const keyboard=TESTS.map(test=>[{text:test.title,callback_data:"test:start:"+test.id}]);
+  keyboard.push([{text:"↩️ العودة إلى مكتبة القصص",callback_data:"cat:menu"}]);
+  await send(env,chatId,"<b>🧠 اختبارات فَصْل</b>\n\nاختبارات تفاعلية لاستكشاف أسلوب التفكير والميول المهنية. النتائج استرشادية وليست تشخيصًا نفسيًا أو قرار توظيف.",{inline_keyboard:keyboard});
+}
+async function renderTestQuestion(env:Env,sessionId:string,session:TestSession){
+  const test=findTest(session.testId);if(!test)return;
+  const question=test.questions[session.questionIndex];if(!question)return;
+  const keyboard=question.options.map((option,index)=>[{text:option.text,callback_data:"test:answer:"+sessionId+":"+session.questionIndex+":"+index}]);
+  await send(env,session.chatId,"<b>"+escapeHtml(test.title)+"</b>\nالسؤال "+(session.questionIndex+1)+" من "+test.questions.length+"\n\n"+escapeHtml(question.prompt),{inline_keyboard:keyboard});
+}
+async function finishTest(env:Env,sessionId:string,session:TestSession){
+  const test=findTest(session.testId);if(!test)return;
+  const result=scoreTest(test,session.answers),primary=test.results[result.primary],secondary=test.results[result.secondary];
+  const departments=session.testId==="career"?careerDepartments(result.primary,result.secondary):[];
+  const characterNames:Record<string,string>={analysis:"شيرلوك هولمز",creation:"توني ستارك",action:"لارا كروفت",people:"هيرميون غرينجر",strategy:"مايكل كورليوني",exploration:"إنديانا جونز"};
+  const title=session.testId==="character"?"أقرب نموذج خيالي إليك: "+characterNames[result.primary]:primary.title;
+  const scoreLines=(Object.entries(result.scores) as [string,number][]).sort((x,y)=>y[1]-x[1]).map(([axis,value])=>test.results[axis as keyof typeof test.results].title+": "+value).join("\n");
+  const extra=session.testId==="career"
+    ? "\n\n<b>مجالات قد تناسب ميولك:</b>\n"+departments.map(x=>"• "+escapeHtml(x)).join("\n")+"\n\nهذه اقتراحات استكشافية وليست حكمًا على أهليتك لوظيفة."
+    : session.testId==="character"
+      ? "\n\nالتشابه هنا في أسلوب التفكير والصفات التي ظهرت من إجاباتك، وليس تطابقًا حرفيًا مع الشخصية."
+      : "\n\n<b>مجال ثانوي ظاهر في إجاباتك:</b> "+escapeHtml(secondary.title)+" — "+escapeHtml(secondary.description);
+  const report="<b>نتيجتك في "+escapeHtml(test.title)+"</b>\n\n<b>"+escapeHtml(title)+"</b>\n"+escapeHtml(primary.description)+"\n\n<b>نقاط القوة:</b> "+escapeHtml(primary.strengths)+"\n<b>ما يمكنك تطويره:</b> "+escapeHtml(primary.improve)+"\n<b>مجالات قريبة:</b> "+escapeHtml(primary.match)+extra+"\n\n<b>ملف درجاتك:</b>\n"+scoreLines+"\n\n<i>نتيجة هذا الاختبار القصير استرشادية وليست تقييمًا نفسيًا أو مهنيًا معتمدًا.</i>";
+  await send(env,session.chatId,report,{inline_keyboard:[[{text:"🔁 أعد الاختبار",callback_data:"test:start:"+test.id}],[{text:"🧠 اختبارات أخرى",callback_data:"tests:menu"},{text:"📚 مكتبة القصص",callback_data:"cat:menu"}]]});
+  await env.DB.prepare("DELETE FROM settings WHERE key=?").bind("test-session:"+sessionId).run();
+}
 async function listStories(env:Env,chatId:string,category?:string){
   const rows=await env.DB.prepare("SELECT story_id,title,description,genre,estimated_minutes,content_json FROM stories WHERE active=1 ORDER BY created_at").all<{story_id:string;title:string;description:string;genre:string;estimated_minutes:number;content_json:string}>();
   const active=rows.results.map(row=>({row,story:parse<Story>(row.content_json)}));
@@ -108,6 +137,7 @@ async function listStories(env:Env,chatId:string,category?:string){
     for(const item of active){const key=item.story.category||"mystery";counts.set(key,(counts.get(key)||0)+1);}
     const keyboard=Object.entries(STORY_CATEGORY_LABELS).filter(([key])=>(counts.get(key)||0)>0).map(([key,label])=>[{text:`${label} · ${counts.get(key)}`,callback_data:`cat:${key}`}]);
     if(!keyboard.length){await send(env,chatId,"لا توجد قصص متاحة حاليًا.");return;}
+    keyboard.push([{text:"🧠 الاختبارات",callback_data:"tests:menu"}]);
     await send(env,chatId,"<b>مكتبة فَصْل</b>\nاختر القسم الذي يناسبك:",{inline_keyboard:keyboard});return;
   }
   const selected=active.filter(item=>category==="all"||item.story.category===category);
@@ -187,9 +217,10 @@ async function onMessage(env:Env,m:TgMessage){
   const chatId=String(m.chat.id),userId=String(m.from?.id||"");
   const text=(m.text||"").trim();
   const command=(text.split(/\s+/,1)[0]||"").split("@")[0];
-  if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية، وقرارات تغيّر مجرى الأحداث.\n\nاستخدم /stories لاختيار قسمك ثم قصتك، أو /help للمساعدة.");return;}
-  if(command==="/help"){await send(env,chatId,"/stories — أقسام مكتبة القصص\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nفي المجموعات: أضف البوت وامنحه صلاحية إرسال الرسائل والتصويت.");return;}
+  if(command==="/start"){await send(env,chatId,"أهلًا بك في <b>فَصْل</b> — قصص تفاعلية واختبارات تفكير وشخصية ومسار مهني.\n\n/stories — مكتبة القصص\n/tests — الاختبارات\n/help — المساعدة.");return;}
+  if(command==="/help"){await send(env,chatId,"/stories — أقسام مكتبة القصص\n/tests — اختبارات الشخصية والتفكير والعمل\n/stop — إنهاء الجلسة الحالية\n/admin — لوحة المالك (للمالك فقط)\n\nالاختبارات الشخصية والمهنية تعمل في الخاص لحماية إجاباتك.");return;}
   if(command==="/stories"){await listStories(env,chatId);return;}
+  if(command==="/tests"){await showTestsMenu(env,chatId);return;}
   if(command==="/stop"){const s=await getSession(env.DB,chatId);if(s){await closePollIfOpen(env,s);await env.DB.prepare("UPDATE sessions SET status='stopped',poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL WHERE session_id=?").bind(s.session_id).run();await send(env,chatId,"أُوقفت الجلسة. يمكنك بدء قصة جديدة عبر /stories.");}else await send(env,chatId,"لا توجد جلسة نشطة.");return;}
   if(command==="/broadcast"){
     if(!isAdmin(env,userId)){await send(env,chatId,"هذا الأمر مخصص للمالك.");return;}
@@ -217,6 +248,27 @@ async function onMessage(env:Env,m:TgMessage){
 async function onCallback(env:Env,q:NonNullable<TgUpdate["callback_query"]>){
   await tg(env,"answerCallbackQuery",{callback_query_id:q.id});
   const data=q.data||"",chatId=String(q.message?.chat.id||q.from.id),userId=String(q.from.id);
+  if(data==="tests:menu"){await showTestsMenu(env,chatId);return;}
+  if(data.startsWith("test:start:")){
+    if(q.message?.chat.type!=="private"){await send(env,chatId,"افتح محادثة فَصْل الخاصة لإجراء الاختبار؛ إجاباتك ونتيجتك شخصية.");return;}
+    const testId=data.slice("test:start:".length),test=findTest(testId);if(!test)return;
+    const sessionId=id();
+    const session:TestSession={testId,chatId,userId,questionIndex:0,answers:[]};
+    await env.DB.prepare("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)").bind("test-session:"+sessionId,JSON.stringify(session)).run();
+    await send(env,chatId,"<b>"+escapeHtml(test.title)+"</b>\n"+escapeHtml(test.description)+"\n\nاختر الإجابة الأقرب إليك، ولا توجد إجابة صحيحة أو خاطئة.");
+    await renderTestQuestion(env,sessionId,session);return;
+  }
+  if(data.startsWith("test:answer:")){
+    const [, , sessionId,indexText,optionText]=data.split(":"),key="test-session:"+sessionId;
+    const row=await env.DB.prepare("SELECT value FROM settings WHERE key=?").bind(key).first<{value:string}>();
+    if(!row){await send(env,chatId,"انتهت صلاحية جلسة الاختبار. ابدأ اختبارًا جديدًا عبر /tests.");return;}
+    const session=parse<TestSession>(row.value),test=findTest(session.testId),questionIndex=Number(indexText),optionIndex=Number(optionText);
+    if(session.userId!==userId||session.chatId!==chatId||!test||questionIndex!==session.questionIndex||!Number.isInteger(optionIndex)||!test.questions[questionIndex]?.options[optionIndex]){await send(env,chatId,"هذا الاختيار غير صالح أو لا يخص جلستك.");return;}
+    session.answers.push(optionIndex);session.questionIndex++;
+    if(session.questionIndex>=test.questions.length){await finishTest(env,sessionId,session);return;}
+    await env.DB.prepare("UPDATE settings SET value=? WHERE key=?").bind(JSON.stringify(session),key).run();
+    await renderTestQuestion(env,sessionId,session);return;
+  }
   if(data.startsWith("cat:")){const category=data.slice(4);await listStories(env,chatId,category==="menu"?undefined:category);return;}
   if(data.startsWith("play:")){
     const storyId=data.slice(5),mode=q.message?.chat.type==="private"?"private":"group";
