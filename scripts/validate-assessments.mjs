@@ -12,7 +12,7 @@ vm.runInNewContext(compiled, { exports: moduleBox.exports, module: moduleBox });
 
 const { TESTS, scoreTest, careerDepartments } = moduleBox.exports;
 assert.equal(TESTS.length, 5, "Expected thinking, personality, career, aptitude, and workplace tests");
-const axes = ["analysis", "creation", "action", "people", "strategy", "exploration"];
+const axes = ["analysis", "creation", "action", "people", "strategy", "exploration", "organization"];
 for (const test of TESTS) {
   assert.ok(test.title && test.description, test.id + ": missing metadata");
   assert.ok(test.questions.length >= 8, test.id + ": needs at least 8 questions");
