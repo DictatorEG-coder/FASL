@@ -28,7 +28,19 @@
    - `npx wrangler secret put BOT_TOKEN`
    - `npx wrangler secret put WEBHOOK_SECRET` (قيمة عشوائية طويلة، أحرف وأرقام وشرطة فقط)
    - `npx wrangler secret put ADMIN_IDS` (رقم Telegram ID للمالك؛ يمكن إضافة أكثر من ID بفواصل)
-6. انشر: `npm run deploy`.
+6. انشر محليًا: `npm run deploy`.
+
+### النشر من GitHub Actions
+أُضيف سير عمل نشر يدوي باسم **Deploy FASL to Cloudflare**. قبل تشغيله:
+1. أنشئ Cloudflare API Token بصلاحية **Workers Editor** على Worker `fasl` الموجود.
+2. أضف في GitHub Repository → Settings → Secrets and variables → Actions السرّين:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+3. افتح Actions، واختر **Deploy FASL to Cloudflare**، ثم **Run workflow**.
+
+سير العمل يشغّل `npm test` أولًا، ولا ينشر إذا فشلت الاختبارات أو غابت بيانات الاعتماد. النشر يدوي ولا يحدث تلقائيًا مع كل Push. لا تحتاج صلاحيات D1 منفصلة لمجرد نشر Worker مرتبط بقاعدة D1؛ صلاحيات القاعدة مطلوبة فقط عند تنفيذ عمليات مباشرة عليها.
+
+بعد نشر Worker، سيزامن `ensureSeed` محتوى القصص الجديدة إلى D1 عند أول تحديث Telegram، وسيعطّل قصة `the-empty-ship` المتقاعدة دون حذف بياناتها.
 7. سجّل webhook بعد استبدال القيم:
 ```bash
 curl -X POST "https://api.telegram.org/bot< BOT_TOKEN >/setWebhook" \
