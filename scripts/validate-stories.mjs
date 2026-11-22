@@ -2,12 +2,23 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 
+const extraSource = readFileSync("src/extra-stories.ts", "utf8");
+const extraCompiled = ts.transpileModule(extraSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const extraBox = { exports: {} };
+vm.runInNewContext(extraCompiled, { exports: extraBox.exports, module: extraBox });
+
 const source = readFileSync("src/stories.ts", "utf8");
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const moduleBox = { exports: {} };
-vm.runInNewContext(compiled, { exports: moduleBox.exports, module: moduleBox });
+vm.runInNewContext(compiled, {
+  exports: moduleBox.exports,
+  module: moduleBox,
+  require: (name) => name === "./extra-stories" ? extraBox.exports : (() => { throw new Error("Unexpected module: " + name); })(),
+});
 
 const stories = moduleBox.exports.STORIES;
 if (!Array.isArray(stories) || stories.length === 0) {
