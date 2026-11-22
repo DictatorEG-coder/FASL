@@ -1610,7 +1610,7 @@ export const STORIES: Story[] = [
   },
   {
     "id": "the-road-that-vanishes",
-    "category": "survival",
+    "category": "adventure",
     "title": "الطريق الذي لا يظهر",
     "description": "رحلة ليلية تنحرف عن خرائطها، وسبعة ركاب يحملون أجزاءً من حادث لم يُغلق ملفه. هل تستطيعون إنقاذ العالق قبل أن ينهار الطريق مرة أخرى؟",
     "genre": "نجاة وتشويق وغموض إنساني",
@@ -2622,7 +2622,7 @@ export const STORIES: Story[] = [
 ,
   {
     "id": "the-moor-hound",
-    "category": "literary",
+    "category": "horror_mystery",
     "title": "كلب المستنقع",
     "description": "قصر معزول، أسطورة عن كلب يظهر في الضباب، ووريث اختفى قبل توقيع عقد بيع الأرض. قصة تحقيق أصلية مستوحاة من أجواء الأدب القوطي الكلاسيكي.",
     "genre": "تحقيق أدبي وغموض قوطي",
