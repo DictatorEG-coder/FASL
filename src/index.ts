@@ -157,6 +157,7 @@ async function sendStoryReview(env:Env,s:Session,story:Story){
   ]);
   const review=buildStoryReview(state,allClues,rows.results.map(row=>row.clue_id),story.loopTitles);
   await send(env,s.chat_id,"<b>ماذا فاتك؟</b>\n\n"+escapeHtml(review));
+  if(story.sourceReferences?.length){const refs=story.sourceReferences.map(ref=>`• <a href="${escapeHtml(ref.url)}">${escapeHtml(ref.title)}</a>`).join("\n");await send(env,s.chat_id,"<b>مراجع القصة:</b>\n"+refs);}
 }
 async function finish(env:Env,s:Session,scene:Scene,story:Story){
   await env.DB.prepare("UPDATE sessions SET status='finished',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(s.session_id).run();
