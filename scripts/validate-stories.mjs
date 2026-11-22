@@ -35,6 +35,11 @@ for (const story of stories) {
 
   const validCategories = new Set(["investigation", "horror_mystery", "mystery", "adventure", "survival", "historical", "science_fiction", "literary"]);
   if (!validCategories.has(story.category)) errors.push(`${story.id}: invalid story category "${story.category}"`);
+  if (story.sourceNote && (!Array.isArray(story.sourceReferences) || story.sourceReferences.length === 0)) errors.push(`${story.id}: source note requires at least one source reference`);
+  for (const reference of story.sourceReferences || []) {
+    if (!reference.title?.trim() || !/^https:\\/\\//.test(reference.url || "")) errors.push(`${story.id}: invalid source reference`);
+  }
+
   const scenes = story.scenes || {};
   const totalScenes = Object.keys(scenes).length;
   const totalChoices = Object.values(scenes).reduce((sum, scene) => sum + (scene.choices || []).length, 0);
@@ -126,6 +131,29 @@ if (errors.length) {
   process.exitCode = 1;
 } else {
   console.log(`Validated ${stories.length} stories and all reachable scene links.`);
+}
+
+const doubleStrike = stories.find(story => story.id === "the-double-strike");
+if (doubleStrike) {
+  const scenes = doubleStrike.scenes || {};
+  const sceneCount = Object.keys(scenes).length;
+  const choiceCount = Object.values(scenes).reduce((sum, scene) => sum + (scene.choices || []).length, 0);
+  const endings = Object.values(scenes).filter(scene => scene.ending).length;
+  const clueIds = new Set(Object.values(scenes).flatMap(scene => [
+    ...(scene.clue ? [scene.clue.id] : []),
+    ...(scene.choices || []).flatMap(choice => (choice.grants || []).map(clue => clue.id))
+  ]));
+  if (sceneCount < 30) errors.push("the-double-strike: editorial release requires at least 30 scenes");
+  if (choiceCount < 50) errors.push("the-double-strike: editorial release requires at least 50 choices");
+  if (endings < 3) errors.push("the-double-strike: editorial release requires three endings");
+  if (!doubleStrike.sourceNote || !doubleStrike.sourceReferences?.length) errors.push("the-double-strike: source provenance is required");
+  for (const [sceneId, scene] of Object.entries(scenes)) {
+    for (const choice of scene.choices || []) {
+      for (const clueId of choice.requires || []) {
+        if (!clueIds.has(clueId)) errors.push(`the-double-strike/${sceneId}: required clue "${clueId}" is never granted`);
+      }
+    }
+  }
 }
 
 const road = stories.find(story => story.id === "the-road-that-vanishes");
