@@ -158,8 +158,11 @@ async function sendStoryReview(env:Env,s:Session,story:Story){
     ...(scene.clue?[scene.clue]:[]),
     ...(scene.choices||[]).flatMap(choice=>choice.grants||[])
   ]);
-  const review=buildStoryReview(state,allClues,rows.results.map(row=>row.clue_id),story.loopTitles);
-  await send(env,s.chat_id,"<b>ماذا فاتك؟</b>\n\n"+escapeHtml(review));
+  const hasReviewContent=Boolean(story.timeLimit||Object.keys(story.loopTitles||{}).length||story.memoryEvents&&Object.keys(story.memoryEvents).length||allClues.length);
+  if(hasReviewContent){
+    const review=buildStoryReview(state,allClues,rows.results.map(row=>row.clue_id),story.loopTitles);
+    await send(env,s.chat_id,"<b>مراجعة التحقيق والقرارات</b>\n\n"+escapeHtml(review));
+  }
   if(story.sourceReferences?.length){const refs=story.sourceReferences.map(ref=>`• <a href="${escapeHtml(ref.url)}">${escapeHtml(ref.title)}</a>`).join("\n");await send(env,s.chat_id,"<b>مراجع القصة:</b>\n"+refs);}
 }
 async function finish(env:Env,s:Session,scene:Scene,story:Story){
