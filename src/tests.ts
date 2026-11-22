@@ -167,9 +167,10 @@ export function findTest(testId: string): FaslTest | undefined {
   return TESTS.find(test => test.id === testId);
 }
 export function scoreTest(test: FaslTest, answers: number[]) {
-  const scores: Record<Axis, number> = { analysis:0, creation:0, action:0, people:0, strategy:0, exploration:0, organization:0 };
+  const scores: Record<Axis, number> = { analysis:0, creation:0, action:0, people:0, strategy:0, exploration:0, organization:0, extraversion:0, agreeableness:0, conscientiousness:0, emotionalStability:0, openness:0 };
   answers.forEach((answer, index) => {
-    const option = test.questions[index]?.options[answer];
+    const question = test.questions[index];
+    const option = question?.options[answer];
     if (!option) return;
     if (test.kind === "big-five" && question.factor) {
       const raw = option.scores[question.factor] || 0;
