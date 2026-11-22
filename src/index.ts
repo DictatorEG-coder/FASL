@@ -191,7 +191,8 @@ async function showScene(env:Env,session:Session,story:Story,sceneId:string){
     await saveStoryState(env.DB,session.session_id,state);
   }
   const memoryLines=(scene.memoryReactions||[]).filter(reaction=>reaction.requires.every(eventId=>(state.memories||[]).some(memory=>memory.eventId===eventId))).map(reaction=>reaction.text);
-  const sceneText=[scene.text,...memoryLines].join("\n\n");
+  const clueLine=scene.clue?"\n\n<b>اكتشاف جديد: "+escapeHtml(scene.clue.title)+"</b>\n"+escapeHtml(scene.clue.detail):"";
+  const sceneText=[scene.text,...memoryLines].join("\n\n")+clueLine;
   const stateLine=(story.timeLimit!==undefined||scene.opens?.length||scene.resolves?.length||scene.choices?.some(c=>c.effects))
     ? "\n\n<blockquote>"+escapeHtml(stateSummary(state,story.loopTitles))+"</blockquote>" : "";
   await env.DB.prepare("UPDATE sessions SET scene_id=?,poll_id=NULL,pending_poll_scene=NULL,poll_due_at=NULL,status='active',updated_at=CURRENT_TIMESTAMP WHERE session_id=?").bind(sceneId,session.session_id).run();
