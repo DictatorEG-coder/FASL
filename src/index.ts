@@ -97,7 +97,7 @@ async function recordUser(env:Env,m:TgMessage){
   if(m.from) await env.DB.prepare("INSERT INTO users(telegram_id,first_name,username) VALUES(?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET first_name=excluded.first_name,username=excluded.username,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.from.id),m.from.first_name||"",m.from.username||null).run();
   await env.DB.prepare("INSERT INTO chats(chat_id,chat_type,title) VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET title=excluded.title,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.chat.id),m.chat.type,m.chat.title||null).run();
 }
-const STORY_CATEGORY_LABELS:Record<string,string>={investigation:"🕵️ التحقيق في القضايا",horror_mystery:"👁️ الرعب والغموض",mystery:"🧩 الغموض والتشويق",adventure:"🧭 المغامرات والاستكشاف",survival:"🏕️ النجاة والكوارث",historical:"📜 القصص الواقعية والتاريخية",science_fiction:"🚀 الخيال العلمي والدراما"};
+const STORY_CATEGORY_LABELS:Record<string,string>={investigation:"🕵️ التحقيق في القضايا",horror_mystery:"👁️ الرعب والغموض",mystery:"🧩 الغموض والتشويق",adventure:"🧭 المغامرات والاستكشاف",survival:"🏕️ النجاة والكوارث",historical:"📜 القصص الواقعية والتاريخية",literary:"📚 الأدب والروايات",science_fiction:"🚀 الخيال العلمي والدراما"};
 async function listStories(env:Env,chatId:string,category?:string){
   const rows=await env.DB.prepare("SELECT story_id,title,description,genre,estimated_minutes,content_json FROM stories WHERE active=1 ORDER BY created_at").all<{story_id:string;title:string;description:string;genre:string;estimated_minutes:number;content_json:string}>();
   const active=rows.results.map(row=>({row,story:parse<Story>(row.content_json)}));
@@ -172,6 +172,7 @@ async function startStory(env:Env,chatId:string,userId:string,storyId:string,mod
   const session:Session={session_id:id(),chat_id:chatId,user_id: userId,story_id:storyId,scene_id:story.start,status:"active",mode,poll_id:null,pending_poll_scene:null,poll_due_at:null};
   await env.DB.prepare("INSERT INTO sessions(session_id,chat_id,user_id,story_id,scene_id,status,mode) VALUES(?,?,?,?,?,'active',?)").bind(session.session_id,chatId,userId,storyId,story.start,mode).run();
   await saveStoryState(env.DB,session.session_id,createStoryState(story.timeLimit||90));
+  if(story.sourceNote)await send(env,chatId,"<b>ملاحظة حول المصدر:</b> "+escapeHtml(story.sourceNote));
   await showScene(env,session,story,story.start);
 }
 async function onMessage(env:Env,m:TgMessage){
