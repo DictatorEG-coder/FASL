@@ -90,8 +90,10 @@ async function storyById(db:D1Database,storyId:string):Promise<Story|null>{
   if(row)return parse<Story>(row.content_json);
   return STORIES.find(s=>s.id===storyId)||null;
 }
+const RETIRED_STORY_IDS=["the-empty-ship"];
 async function ensureSeed(db:D1Database){
   for(const s of STORIES) await db.prepare("INSERT INTO stories(story_id,title,description,genre,estimated_minutes,content_json) VALUES(?,?,?,?,?,?) ON CONFLICT(story_id) DO UPDATE SET title=excluded.title,description=excluded.description,genre=excluded.genre,estimated_minutes=excluded.estimated_minutes,content_json=excluded.content_json WHERE stories.title!=excluded.title OR stories.description!=excluded.description OR stories.genre!=excluded.genre OR stories.estimated_minutes!=excluded.estimated_minutes OR stories.content_json!=excluded.content_json").bind(s.id,s.title,s.description,s.genre,s.minutes,JSON.stringify(s)).run();
+  for(const retiredId of RETIRED_STORY_IDS)await db.prepare("UPDATE stories SET active=0 WHERE story_id=?").bind(retiredId).run();
 }
 async function recordUser(env:Env,m:TgMessage){
   if(m.from) await env.DB.prepare("INSERT INTO users(telegram_id,first_name,username) VALUES(?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET first_name=excluded.first_name,username=excluded.username,last_seen_at=CURRENT_TIMESTAMP").bind(String(m.from.id),m.from.first_name||"",m.from.username||null).run();
