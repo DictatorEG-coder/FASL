@@ -111,7 +111,7 @@ async function renderTestQuestion(env:Env,sessionId:string,session:TestSession){
   const test=findTest(session.testId);if(!test)return;
   const question=test.questions[session.questionIndex];if(!question)return;
   const keyboard=question.options.map((option,index)=>[{text:option.text,callback_data:"test:answer:"+sessionId+":"+session.questionIndex+":"+index}]);
-  await send(env,session.chatId,"<b>"+escapeHtml(test.title)+"</b>\nالسؤال "+(session.questionIndex+1)+" من "+test.questions.length+"\n\n"+escapeHtml(question.prompt),{inline_keyboard:keyboard});
+  const sourceLine=session.questionIndex===0&&test.sourceNote?"\n\n<blockquote>"+escapeHtml(test.sourceNote)+"</blockquote>":"";\n  await send(env,session.chatId,"<b>"+escapeHtml(test.title)+"</b>\nالسؤال "+(session.questionIndex+1)+" من "+test.questions.length+"\n\n"+escapeHtml(question.prompt)+sourceLine,{inline_keyboard:keyboard});
 }
 async function finishTest(env:Env,sessionId:string,session:TestSession){
   const test=findTest(session.testId);if(!test)return;
@@ -120,6 +120,26 @@ async function finishTest(env:Env,sessionId:string,session:TestSession){
     const detail=test.questions.map((question,index)=>"<b>"+(index+1)+". "+escapeHtml(question.prompt)+"</b>\n"+(session.answers[index]===question.correctIndex?"<b>إجابة صحيحة.</b> ":"<b>الإجابة الصحيحة: "+escapeHtml(question.options[question.correctIndex!].text)+".</b> ")+escapeHtml(question.explanation||"")).join("\n\n");
     const band=result.accuracy!>=80?"قوي جدًا":result.accuracy!>=60?"جيد":result.accuracy!>=40?"متوسط ويستفيد من التدريب":"يحتاج إلى تدريب وممارسة";
     await send(env,session.chatId,"<b>نتيجة اختبار القدرات والاستدلال</b>\n\n<b>"+result.correctCount+" من "+test.questions.length+"</b> — دقة "+result.accuracy+"%\nمستواك في هذه الجولة: <b>"+band+"</b>\n\n"+detail+"\n\n<i>هذا اختبار قصير غير معياري؛ النتيجة لا تعادل اختبار ذكاء أو تقييم توظيف رسميًا.</i>",{inline_keyboard:[[{text:"🔁 أعد الاختبار",callback_data:"test:start:"+test.id}],[{text:"🧠 اختبارات أخرى",callback_data:"tests:menu"}]]});
+    await env.DB.prepare("DELETE FROM settings WHERE key=?").bind("test-session:"+sessionId).run();
+    return;
+  }
+
+  if(test.kind==="big-five"){
+    const traits:[keyof typeof test.results,string][]=[
+      ["extraversion","الانبساط"],
+      ["agreeableness","التوافق والود"],
+      ["conscientiousness","يقظة الضمير والتنظيم"],
+      ["emotionalStability","الاستقرار الانفعالي"],
+      ["openness","الانفتاح على الخبرة"]
+    ];
+    const detail=traits.map(([key,label])=>{
+      const mean=(result.scores[key]/10).toFixed(1);
+      return "<b>"+label+": "+mean+" / 5</b>\n"+escapeHtml(test.results[key].description);
+    }).join("\n\n");
+    const report="<b>نتيجتك في مقياس السمات الخمس الكبرى</b>\n\n"+detail+
+      "\n\n<i>الدرجات متوسطات إجاباتك على البنود، وليست ترتيبًا مقارنةً بالسكان أو تشخيصًا نفسيًا. الصياغة العربية ترجمة عملنا وليست النسخة العربية المنشورة التي خضعت لدراسة مستقلة؛ لذلك تُستخدم للاستكشاف الذاتي فقط.</i>"+
+      "\n\nالمصدر العلمي: IPIP Big-Five Factor Markers — Goldberg (1992).\nhttps://ipip.ori.org/newBigFive5broadKey.htm";
+    await send(env,session.chatId,report,{inline_keyboard:[[{text:"🔁 أعد الاختبار",callback_data:"test:start:"+test.id}],[{text:"🧠 اختبارات أخرى",callback_data:"tests:menu"},{text:"📚 مكتبة القصص",callback_data:"cat:menu"}]]});
     await env.DB.prepare("DELETE FROM settings WHERE key=?").bind("test-session:"+sessionId).run();
     return;
   }
