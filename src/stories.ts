@@ -6,12 +6,14 @@ export type Scene = { text: string; choices?: Choice[]; ending?: boolean; tieTex
 export type InterrogationQuestion = { prompt: string; answer: string; requiresClueId?: string; revealClue?: Clue };
 export type Suspect = { id: string; name: string; opening: string; questions: InterrogationQuestion[]; contradiction: { clueId: string; prompt: string; response: string; revealClue?: Clue } };
 export type CaseEnding = { id: string; title: string; requiredClues: string[]; requiredInterrogations: string[]; text: string };
-export type Story = { id: string; title: string; description: string; genre: string; minutes: number; timeLimit?: number; loopTitles?: Record<string, string>; memoryEvents?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
+export type StoryCategory = "investigation" | "horror_mystery" | "mystery" | "adventure" | "survival" | "historical" | "science_fiction";
+export type Story = { id: string; category: StoryCategory; title: string; description: string; genre: string; minutes: number; timeLimit?: number; loopTitles?: Record<string, string>; memoryEvents?: Record<string, string>; start: string; scenes: Record<string, Scene>; caseFile?: { minimumClues: number; minimumInterrogations: number; correctSuspectId: string; explanation: string; suspects: Suspect[]; endings?: CaseEnding[]; defaultEnding?: { title: string; text: string } } };
 
 // Images are illustrative scene artwork hosted by Unsplash. Each choice may carry its own image.
 export const STORIES: Story[] = [
   {
     id: "the-last-platform",
+    category: "mystery",
     title: "الرصيف الأخير",
     description: "قطار ليلي يعبر محطات من حياة لم تعشها. أمامك ليلة كاملة لتكتشف لماذا اختفى ركابه، ومن الذي يكتب نهاياتهم.",
     genre: "غموض نفسي ومغامرة",
@@ -55,6 +57,7 @@ export const STORIES: Story[] = [
   },
   {
     id: "the-breathing-room",
+    category: "horror_mystery",
     title: "الغرفة التي تتنفّس",
     description: "تستيقظ في فندق مهجور، وتكتشف أن الغرفة تتغير كلما أغمضت عينيك.",
     genre: "رعب نفسي وغموض",
@@ -78,6 +81,7 @@ export const STORIES: Story[] = [
   },
   {
     id: "tomorrows-letter",
+    category: "science_fiction",
     title: "رسالة من الغد",
     description: "رسالة تصل إليك قبل يوم من كتابتها، وتحذرك من شخص لم تقابله بعد.",
     genre: "خيال علمي وتحقيق",
@@ -101,6 +105,7 @@ export const STORIES: Story[] = [
   },
   {
     id: "city-without-shadows",
+    category: "adventure",
     title: "مدينة بلا ظلال",
     description: "في مدينة تختفي فيها الظلال عند الغروب، يكتشف ثلاثة غرباء أن الشمس ليست مصدر الضوء الوحيد.",
     genre: "مغامرة وخيال علمي",
@@ -124,6 +129,7 @@ export const STORIES: Story[] = [
 
 {
   id: "the-locked-room",
+    category: "investigation",
   title: "لغز الغرفة 17",
   description: "جريمة في غرفة مغلقة، أربعة مشتبه بهم، وأدلة صغيرة تقود إلى الحقيقة.",
   genre: "تحقيق جنائي وألغاز",
@@ -351,6 +357,7 @@ export const STORIES: Story[] = [
 },
 {
   id: "seventy-two-hours",
+    category: "survival",
   title: "72 ساعة بلا إشارة",
   description: "زلزال يقطع الطريق عن مجموعة مسافرين. الماء قليل، والطقس يتغير، والنجاة قرار وراء قرار.",
   genre: "نجاة وكوارث",
@@ -524,6 +531,7 @@ export const STORIES: Story[] = [
 },
 {
   id: "the-vanished-expedition",
+    category: "adventure",
   title: "البعثة التي اختفت",
   description: "بعثة أثرية تترك مخيمها مرتبًا، ثم تختفي كأن الأرض ابتلعتها. أنت آخر من وصل إلى الوادي.",
   genre: "مغامرة واستكشاف وغموض تاريخي",
@@ -697,6 +705,7 @@ export const STORIES: Story[] = [
 },
 {
   id: "the-empty-ship",
+    category: "historical",
   title: "السفينة التي عادت وحدها",
   description: "سفينة تصل إلى الميناء بلا طاقم، وعلى متنها طعام دافئ وسجل رحلة كُتبت صفحته الأخيرة بعد اختفاء الجميع.",
   genre: "تحقيق تاريخي وبقاء وبحر",
@@ -881,6 +890,7 @@ export const STORIES: Story[] = [
 },
   {
     "id": "the-0317-call",
+    "category": "investigation",
     "title": "النداء 03:17",
     "description": "مكالمة استغاثة تأتي من مستشفى أُغلق منذ تسع سنوات. المتصل يعرف اسمك… ويعرف ما ستفعله بعد دقيقة.",
     "genre": "تشويق وتحقيق وغموض",
@@ -2424,6 +2434,7 @@ export const STORIES: Story[] = [
   },
   {
     "id": "the-road-that-vanishes",
+    "category": "survival",
     "title": "الطريق الذي لا يظهر",
     "description": "رحلة ليلية تنحرف عن خرائطها، وسبعة ركاب يحملون أجزاءً من حادث لم يُغلق ملفه. هل تستطيعون إنقاذ العالق قبل أن ينهار الطريق مرة أخرى؟",
     "genre": "نجاة وتشويق وغموض إنساني",
@@ -2552,7 +2563,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "اسأل يونس عن الحافلة الثانية",
-            "effects": {"remember":[{"characterId":"salma","eventId":"protected-younis","impression":"استمع إلى يونس دون تحويل خوفه إلى استجواب."}]},
+            "effects": {"time":-3,"trust":{"salma":1},"remember":[{"characterId":"salma","eventId":"protected-younis","impression":"استمع إلى يونس دون تحويل خوفه إلى استجواب."}]},
             "next": "b8",
             "image": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900",
             "grants": [
@@ -2565,7 +2576,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "اطلب من محمود إظهار الصورة",
-            "effects": {"remember":[{"characterId":"mahmoud","eventId":"heard-mahmoud","impression":"منح محمود فرصة ليكشف ما يخفيه بدل تجاهل صمته."}]},
+            "effects": {"time":-3,"remember":[{"characterId":"mahmoud","eventId":"heard-mahmoud","impression":"منح محمود فرصة ليكشف ما يخفيه بدل تجاهل صمته."}]},
             "next": "b7",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900",
             "grants": [
@@ -2666,11 +2677,12 @@ export const STORIES: Story[] = [
         ]
       },
       "b8": {
-        "resolves": ["passenger-memories"],
+        "memoryReactions": [{"requires":["protected-younis"],"text":"تقول سلمى لك بصوت منخفض: «شكرًا لأنك لم تضغط على يونس. سأساعدك في فهم ما يتذكره، لكن دون أن نخيفه»."}],
         "text": "يصف يونس الحافلة الثانية: لونها أغمق، وعلى زجاجها سبعة أسماء. لا يراها الآن، لكنه يقول إنها تظهر كلما أطفأ أحدهم المصباح الداخلي. سلمى تحاول تهدئته، فتلاحظ أن يده ترتجف. تعطيه ورقة وقلمًا؛ يرسم سبعة أشخاص أمام الجسر، ويضع شخصًا خلف خط أسود تحت الأرض. محمود يتعرف إلى شكل الجسر في الرسم، ثم يطلب من سامح التوقف عن الكذب. للمرة الأولى يرد السائق: «أنا لم أقل إنني لا أعرف المكان».\n\nتسأل يونس عن شكل الشخص خلف النافذة، فيقول إنه لم ير وجهه، بل رأى كفًا تضرب الزجاج من الداخل. سلمى تلاحظ أنه يكرر العدد سبعة كلما خاف. لا تضغط عليه بأسئلة إضافية؛ تترك له الرسم وتطلب منه أن يخبرها إذا تذكر شيئًا آخر.",
         "choices": [
           {
             "text": "اعرض الرسم على سامح واسأله عن الجسر",
+            "effects": {"time":-3,"trust":{"samih":1}},
             "next": "b13",
             "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900",
             "grants": [
@@ -2683,6 +2695,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "اطلب من سلمى فحص يونس ومتابعة حالته",
+            "effects": {"time":-2,"trust":{"salma":1}},
             "next": "b12",
             "image": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=900",
             "grants": [
@@ -2784,7 +2797,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b12": {
-        "memoryReactions": [{"requires":["heard-mahmoud"],"text":"يلتفت محمود إليك وقد خفّ تصلب يده حول الحقيبة: «أنت الوحيد الذي طلب أن يسمعني قبل أن يحكم. سأريك ما أخفيته»."},{"requires":["protected-younis"],"text":"تقول سلمى لك بصوت منخفض: «شكرًا لأنك لم تضغط على يونس. سأساعدك في فهم ما يتذكره، لكن دون أن نخيفه»."}],
+        "memoryReactions": [{"requires":["heard-mahmoud"],"text":"يلتفت محمود إليك وقد خفّ تصلب يده حول الحقيبة: «أنت الوحيد الذي طلب أن يسمعني قبل أن يحكم. سأريك ما أخفيته»."}],
         "text": "يفتح محمود الصورة أخيرًا. يظهر فيها شابان أمام الحافلة: مراد ومحمود، وبينهما طفل لا يظهر وجهه بوضوح. على ظهر الصورة كتب مراد: «لو تأخرت، لا تجعلهم يخرجون قبل عدّ الجميع». يقول محمود إن أخاه كان يعمل متطوعًا في الإنقاذ، وإنه عاد إلى الحافلة القديمة لأنه سمع طفلًا يصرخ. منذ ذلك اليوم لم يتوقف محمود عن البحث، لكنه لم يخبر أسرته لأنه لم يملك دليلًا على أن مراد نجا.\n\nيشرح محمود أن مراد كان يترك علامات صغيرة في الأماكن التي يمر بها، حتى يعرف فريق الإنقاذ طريق العودة. في الصورة تظهر العلامة نفسها على حزامه. يطلب منك ألا تعده بشيء قبل العثور على دليل حي؛ لقد سمع وعودًا كثيرة خلال اثني عشر عامًا.",
         "choices": [
           {
@@ -2814,10 +2827,12 @@ export const STORIES: Story[] = [
         ]
       },
       "b13": {
-        "text": "يحدد سامح موضع الجسر من خلال ثلاثة معالم: صخرة مشقوقة، عمود مائل، وبقايا لوحة زرقاء. محمود يرفض ترك الحافلة قبل أن يعرف إن كانت هناك فرصة للوصول إلى مراد. هالة تحذر من الاقتراب من المجرى؛ الأرض تبدو صلبة لكنها جوفاء في المنتصف. تلاحظ أن العلامة السابعة على العمود أحدث من الست الأخرى، وأنها محفورة بقطعة معدنية تشبه جزءًا من لوحة الحافلة.\n\nيقيس سامح المسافة من العلامة السابعة إلى حافة الجسر بخطواته، ثم يتوقف عند نقطة بعينها. يقول إن صوت الانهيار بدأ من هناك في الحادث القديم. هالة تلتقط صورة للمكان وتحدد موضعًا آمنًا للوقوف، حتى لا يتحول البحث عن شخص إلى حادث جديد.",
+        "resolves": ["passenger-memories"],
+        "text": "يحدد سامح موضع الجسر من خلال ثلاثة معالم: صخرة مشقوقة، عمود مائل، وبقايا لوحة زرقاء. محمود يرفض ترك الحافلة قبل أن يعرف إن كانت هناك فرصة للوصول إلى مراد. هالة تحذر من الاقتراب من المجرى؛ الأرض تبدو صلبة لكنها جوفاء في المنتصف. تلاحظ أن العلامة السابعة على العمود أحدث من الست الأخرى، وأنها محفورة بقطعة معدنية تشبه جزءًا من لوحة الحافلة.\n\nيقيس سامح المسافة من العلامة السابعة إلى حافة الجسر بخطواته، ثم يتوقف عند نقطة بعينها. يقول إن صوت الانهيار بدأ من هناك في الحادث القديم. هالة تلتقط صورة للمكان وتحدد موضعًا آمنًا للوقوف، حتى لا يتحول البحث عن شخص إلى حادث جديد. وعند مطابقة خريطة المقاعد مع الشهادات، يتضح أن كل راكب وصف جزءًا مختلفًا من اللحظة نفسها؛ لم يرَ أحد الحافلة الثانية كاملة، لذلك بدت الروايات متناقضة. لا يثبت ذلك أن الطريق لم يتغير، لكنه يفسر اختلاف ما شاهده الركاب دون اتهام أحد بالكذب.",
         "choices": [
           {
             "text": "اتجهوا إلى محطة الصيانة أولًا لتجهيز الإنقاذ",
+            "effects": {"time":-4,"trust":{"hala":1}},
             "next": "b14",
             "image": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=900",
             "grants": [
@@ -2830,6 +2845,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "افحصوا الجسر من المرتفع دون النزول",
+            "effects": {"time":-5,"trust":{"hala":-1}},
             "next": "b17",
             "image": "https://images.unsplash.com/photo-1524666041070-9a8762b0b6d5?w=900",
             "grants": [
@@ -2847,6 +2863,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "اطلب من المتحدث علامة تثبت هويته",
+            "effects": {"time":-2,"trust":{"samih":1}},
             "next": "b16",
             "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900",
             "grants": [
@@ -2859,6 +2876,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "أرسل الإحداثيات للطوارئ واطلب فريقًا خفيفًا",
+            "effects": {"time":-3,"trust":{"hala":1}},
             "next": "b19",
             "image": "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=900",
             "grants": [
@@ -2906,6 +2924,7 @@ export const STORIES: Story[] = [
         "choices": [
           {
             "text": "انتظر فريق الإنقاذ ولا تخاطر بالنزول",
+            "effects": {"time":-2,"trust":{"hala":1}},
             "next": "b19",
             "image": "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=900",
             "grants": [
@@ -2918,6 +2937,7 @@ export const STORIES: Story[] = [
           },
           {
             "text": "جهزوا الحبل واطلبوا من هالة قيادة النزول",
+            "effects": {"time":-6,"trust":{"hala":1}},
             "next": "b20",
             "image": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=900",
             "grants": [
@@ -2960,6 +2980,7 @@ export const STORIES: Story[] = [
         ]
       },
       "b18": {
+        "resolves": ["passenger-memories"],
         "text": "يتذكر يونس لعبة صغيرة كانت مع الطفل في الصورة. يخرج من جيبه قطعة معدنية على شكل قطار، ويقول إن أمه وجدتها في حقيبته بعد رحلة سابقة مع والده. سلمى تنظر إليه بدهشة؛ لم يخبرها من أين جاءت القطعة. محمود يتعرف إلى نقش مراد على ظهرها. تتضح صلة غير متوقعة: والد يونس كان أحد الناجين الستة، وقد احتفظ بالقطعة دون أن يخبر أسرته بحقيقة الحادث. يونس لا يعرف ذلك، ولا ينبغي أن يتحول إلى أداة ضغط عليه.\n\nتسأل سلمى يونس إن كان يريد معرفة المزيد الآن أم بعد الوصول إلى مكان آمن. يختار التأجيل، فتخبره أنها ستبقى معه ولن تسمح لأحد باستخدام خوفه لإجباره على الكلام. محمود يشكرها بصوت منخفض؛ لقد كان يبحث عن أخيه، لكنه لا يريد أن يدفع طفلًا ثمن ذلك.",
         "choices": [
           {
