@@ -37,7 +37,7 @@ for (const story of stories) {
   if (!validCategories.has(story.category)) errors.push(`${story.id}: invalid story category "${story.category}"`);
   if (story.sourceNote && (!Array.isArray(story.sourceReferences) || story.sourceReferences.length === 0)) errors.push(`${story.id}: source note requires at least one source reference`);
   for (const reference of story.sourceReferences || []) {
-    if (!reference.title?.trim() || !/^https:\\/\\//.test(reference.url || "")) errors.push(`${story.id}: invalid source reference`);
+    if (!reference.title?.trim() || !(reference.url || "").startsWith("https://")) errors.push(`${story.id}: invalid source reference`);
   }
 
   const scenes = story.scenes || {};
@@ -126,13 +126,6 @@ for (const story of stories) {
   }
 }
 
-if (errors.length) {
-  console.error(errors.map(error => `- ${error}`).join("\n"));
-  process.exitCode = 1;
-} else {
-  console.log(`Validated ${stories.length} stories and all reachable scene links.`);
-}
-
 const doubleStrike = stories.find(story => story.id === "the-double-strike");
 if (doubleStrike) {
   const scenes = doubleStrike.scenes || {};
@@ -164,4 +157,11 @@ if (road) {
   if ((road.scenes.b8?.resolves || []).includes("passenger-memories")) errors.push("the-road-that-vanishes: passenger-memories resolves too early");
   if (!(road.scenes.b13?.resolves || []).includes("passenger-memories") && !(road.scenes.b18?.resolves || []).includes("passenger-memories")) errors.push("the-road-that-vanishes: passenger-memories needs later resolution");
   if (!road.scenes.b8?.choices?.some(choice => choice.effects?.time) || !road.scenes.b8?.choices?.some(choice => choice.effects?.trust)) errors.push("the-road-that-vanishes: Younis path choices need time and trust effects");
+}
+
+if (errors.length) {
+  console.error(errors.map(error => `- ${error}`).join("\n"));
+  process.exitCode = 1;
+} else {
+  console.log(`Validated ${stories.length} stories, all reachable scene links, and editorial release gates.`);
 }
