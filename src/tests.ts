@@ -22,9 +22,6 @@ const generalResults: FaslTest["results"] = {
   openness: { title: "الانفتاح على الخبرة", description: "يرتبط بالخيال والفضول والأفكار المجردة والتأمل والاستعداد لتجربة طرق جديدة.", strengths: "الفضول، الخيال، واستكشاف الأفكار والاحتمالات.", improve: "اربط الاستكشاف بالتطبيق، وامنح الأفكار وقتًا للتحقق.", match: "التعلم، البحث، الإبداع، وحل المشكلات المفتوحة." },
 };
 
-const qs = (items: [string, [string, Axis][], [string, Axis][], [string, Axis][]]): TestQuestion[] =>
-  items.map(([prompt, a, b, c]) => ({ prompt, options: [a,b,c].map(([text, axis]) => ({ text, scores: { [axis]: 2 } })) }));
-
 const thinking: TestQuestion[] = [
   { prompt:"عندما تواجه مشكلة معقدة، ما أول ما تفعله؟", options:[{text:"أقسمها إلى أجزاء وأبحث عن السبب",scores:{analysis:2,strategy:1}},{text:"أتخيل حلولًا غير معتادة",scores:{creation:2,exploration:1}},{text:"أجرب حلًا سريعًا وأتعلم من النتيجة",scores:{action:2,exploration:1}},{text:"أفهم من سيتأثر بها وأسمع وجهات النظر",scores:{people:2}}]},
   { prompt:"في مشروع جماعي، ما الدور الذي تجده طبيعيًا؟", options:[{text:"أراجع التفاصيل وأكشف الأخطاء",scores:{analysis:2}},{text:"أقترح الفكرة والشكل المختلف",scores:{creation:2}},{text:"أقسم المهام وأتابع الإنجاز",scores:{strategy:2,action:1}},{text:"أقرب وجهات النظر وأحافظ على التعاون",scores:{people:2}}]},
