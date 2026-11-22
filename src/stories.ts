@@ -686,11 +686,6 @@ export const STORIES: Story[] = [
           next: "e12",
           image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=900"
         },
-        {
-          text: "أرسل إشارة عبر فتحة التهوية",
-          next: "e11",
-          image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900"
-        }
       ]
     },
     e11: {
