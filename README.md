@@ -67,9 +67,9 @@ npm run dev
 - لا يوجد أي توكن أو سر داخل المستودع.
 
 ## بنية الملفات
-- `src/index.ts`: webhook، أوامر Telegram، جلسات، التصويت، cron.
-- `src/stories.ts`: محتوى القصص ومساراتها.
-- `schema.sql`: جداول D1 والفهارس.
+- `src/index.ts`: webhook، أوامر Telegram، جلسات القصص والاختبارات، التصويت، cron.
+- `src/stories.ts`: تسجيل القصص الأساسية.\n- `src/extra-stories.ts`: القصص الإضافية المتفرعة.
+- `schema.sql`: جداول D1 والفهارس.\n- `scripts/validate-assessments.mjs`: فحص محتوى الاختبارات ونتائجها.
 - `wrangler.toml`: إعدادات Worker وD1 وCron.
 
 
